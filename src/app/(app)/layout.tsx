@@ -9,6 +9,8 @@ import { loadDs, loadKholles } from "@/lib/data/exams";
 import { formatDayShort } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
+// La synchro Google lancée par « Synchroniser » peut dépasser la limite par défaut.
+export const maxDuration = 60;
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const { supabase, user, ctx } = await requireUser();

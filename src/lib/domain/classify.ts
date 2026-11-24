@@ -68,6 +68,13 @@ const KEYWORD_RULES: Array<[RegExp, SubjectKey]> = [
   [/\blv1\b/, "anglais"],
   [/\bespagnol\b/, "espagnol"],
   [/\blv2\b/, "espagnol"],
+  // En dernier recours : le nom du prof (« PMI Annualisation (Le Mintier) »).
+  [/\ble ?mintier\b/, "maths"],
+  [/\bjacquier\b/, "eco"],
+  [/\bhuguet\b/, "droit"],
+  [/\(jacques\)/, "management"],
+  [/\bdefrance\b/, "anglais"],
+  [/\bmayoral\b/, "espagnol"],
 ];
 
 export function matchSubject(

@@ -1,8 +1,9 @@
+import { twMerge } from "tailwind-merge";
 import { TZ } from "@/lib/domain/time";
 
 const fmt = (opts: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat("fr-FR", { timeZone: TZ, ...opts });
 
-const time = fmt({ hour: "2-digit", minute: "2-digit", hour12: false });
+const time = fmt({ hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
 const dayShort = fmt({ weekday: "short", day: "numeric", month: "short" });
 const dayLong = fmt({ weekday: "long", day: "numeric", month: "long" });
 const dayNum = fmt({ day: "numeric", month: "2-digit" });
@@ -46,8 +47,9 @@ export function greeting(hour: number) {
   return "Bonsoir";
 }
 
+/** Concatène des classes ; en cas de conflit Tailwind (size-4 vs size-5…), la dernière l'emporte. */
 export function cn(...c: (string | false | null | undefined)[]) {
-  return c.filter(Boolean).join(" ");
+  return twMerge(c.filter(Boolean).join(" "));
 }
 
 /** Couleur hex → rgba avec opacité (fonds teintés matières ~18 %). */

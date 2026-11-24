@@ -12,7 +12,7 @@ import {
   updateEvent,
   updateTask,
 } from "@/lib/google/api";
-import { addDays, dateKey } from "@/lib/domain/time";
+import { addDays, dateKey, parisDateTime } from "@/lib/domain/time";
 import { generateSessions, SESSION_KIND_LABEL, type BusyEvent } from "@/lib/domain/sessions";
 import type { UserContext } from "@/lib/data/context";
 import type { Homework, SessionItem, StudySession } from "@/lib/types";
@@ -226,8 +226,8 @@ export async function generateUpcomingSessions(db: SupabaseClient, ctx: UserCont
       .from("calendar_events")
       .select("kind, start_at, end_at")
       .eq("user_id", ctx.userId)
-      .gte("start_at", `${from}T00:00:00Z`)
-      .lte("start_at", `${to}T23:59:59Z`),
+      .gte("start_at", parisDateTime(from).toISOString())
+      .lt("start_at", parisDateTime(addDays(to, 1)).toISOString()),
     db
       .from("study_sessions")
       .select("date, generated_by_rule")

@@ -76,7 +76,7 @@ export async function updateSession(id: string, raw: Partial<SessionInput> & { s
 }
 
 function timeOf(iso: string) {
-  return new Intl.DateTimeFormat("fr-FR", { timeZone: "Europe/Paris", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(iso));
+  return new Intl.DateTimeFormat("fr-FR", { timeZone: "Europe/Paris", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(iso));
 }
 
 /** Interrupteur étude / maison : change les horaires, conserve les éléments. */

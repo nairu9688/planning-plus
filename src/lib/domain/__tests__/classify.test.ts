@@ -36,6 +36,11 @@ describe("matchSubject — titres réels du calendrier", () => {
     expect(matchSubject(title, colorId)).toBe(expected);
   });
 
+  it("titre avec seulement le nom du prof → matière du prof", () => {
+    expect(matchSubject("PMI Annualisation (Le Mintier) - semaine B", "11")).toBe("maths");
+    expect(matchSubject("Colle (Jacquier)", undefined)).toBe("eco");
+  });
+
   it("« Éco » accentué → eco", () => {
     expect(matchSubject("Révision Éco", undefined)).toBe("eco");
   });
@@ -124,6 +129,11 @@ describe("classifyEvent", () => {
 
   it("événement annulé → ignoré", () => {
     expect(classifyEvent(PRIMARY, ev("Droit (Huguet)", { status: "cancelled" }), ctx)).toBeNull();
+  });
+
+  it("cours reconnu par le nom du prof → cours", () => {
+    const r = classifyEvent(PRIMARY, ev("PMI Annualisation (Le Mintier) - semaine B", { colorId: "11" }), ctx);
+    expect(r).toMatchObject({ kind: "cours", subjectKey: "maths" });
   });
 
   it("cours connu → cours", () => {

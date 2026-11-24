@@ -13,7 +13,7 @@ import type { GridEvent, GridSession } from "@/lib/data/week";
 
 const TZ = "Europe/Paris";
 const dkFmt = new Intl.DateTimeFormat("en-CA", { timeZone: TZ });
-const hmFmt = new Intl.DateTimeFormat("fr-FR", { timeZone: TZ, hour: "2-digit", minute: "2-digit", hour12: false });
+const hmFmt = new Intl.DateTimeFormat("fr-FR", { timeZone: TZ, hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
 const headFmt = new Intl.DateTimeFormat("fr-FR", { timeZone: "UTC", weekday: "short", day: "numeric" });
 
 const dayOf = (iso: string) => dkFmt.format(new Date(iso));
