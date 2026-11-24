@@ -4,7 +4,7 @@
 // 3. Ajoute un widget Scriptable sur l'écran d'accueil et choisis ce script.
 //    Paramètre du widget (facultatif) : "devoir" pour ouvrir directement l'ajout de devoir au toucher.
 
-const APP_URL = "https://planning-plus-naim1.vercel.app"; // ← ton URL Vercel
+const APP_URL = "https://planning-plus-two.vercel.app"; // ← ton URL Vercel
 const TOKEN = "pp_xxx"; // ← ton token API
 
 const C = {
