@@ -1,0 +1,38 @@
+# Widgets iPhone (Scriptable)
+
+Un seul script, [`scriptable/planning-plus-widget.js`](scriptable/planning-plus-widget.js), fournit tous les widgets. Le **paramètre** du widget choisit le type.
+
+## Installation (une fois)
+
+1. Installe **Scriptable** (App Store, gratuit).
+2. Dans Planning+ : Réglages → Tokens API → crée un token « iPhone widgets » et copie-le.
+3. Dans Scriptable : **+** → colle le contenu du script → renomme-le exactement **Planning+**.
+4. Lance-le une fois (▶︎) : il demande l'URL (`https://planning-plus-two.vercel.app`) et le token, stockés dans le trousseau iOS. Le menu qui suit permet de **prévisualiser chaque widget dans chaque taille**.
+5. Écran d'accueil → appui long → **+** → Scriptable → choisis la taille → touche le widget → Script : *Planning+*, **Parameter** : le type ci-dessous, « When interacting » : *Open URL* (laisser par défaut).
+
+## Types de widgets
+
+| Paramètre | Petit | Moyen | Grand / très grand |
+|---|---|---|---|
+| `tableau` (défaut) | anneau DS (soirs restants, jauge de prépa) + devoirs + ce soir | DS en anneau, khôlle, devoirs | tableau de bord complet : DS, CB, khôlle, ce soir avec boutons, devoirs à cocher, histogramme de la semaine |
+| `edt` | cours en cours / suivant | les prochains cours d'aujourd'hui | **emploi du temps dessiné sur 3 jours** (5 jours en très grand), couleurs des matières, sessions hachurées, ligne rouge « maintenant » |
+| `maintenant` | cours en cours + suivant, minuteur en direct | idem | idem |
+| `devoirs` | anneau « cette semaine », retards | 4 devoirs avec **bouton pour cocher** | 9 devoirs groupés (en retard, aujourd'hui, demain, plus tard) + bouton « Devoir » |
+| `kholles` | prochaine khôlle (J-x, salle, préparation) | 2 khôlles | 4 khôlles : prof, salle, temps de prépa, questions à revoir |
+| `ds` | grand anneau : soirs restants + jauge | DS suivant + celui d'après | liste des DS avec mini-jauges + carte concours blanc |
+| `soir` | étude/maison, horaires, éléments | session + boutons **Étude↔Maison**, **Focus**, **Bilan** | tous les éléments |
+| `semaine` | anneau réel/prévu + répartition par matière | anneau + histogramme par jour | + barres par matière, série 🔥, matières délaissées |
+| `postits` | 1 post-it | 2 post-its | 6 post-its ; toucher = ranger |
+| `actions` | 4 boutons | 4 boutons | 8 boutons : devoir, post-it, étude/maison, Focus, Bilan, synchro, calendrier, revue |
+
+**Écran verrouillé** (même script, aucun paramètre nécessaire) : rond = soirs avant le prochain DS, rectangle = cours en cours/suivant (sinon ce soir), ligne = prochain DS + compte à rebours.
+
+## Boutons
+
+Les boutons qui *agissent* (cocher un devoir, basculer étude/maison, ranger un post-it, synchroniser, ajouter un devoir ou un post-it) relancent le script via `scriptable:///run/Planning%2B?action=…` : Scriptable s'ouvre une seconde, exécute l'action et confirme par une notification. Les autres ouvrent directement la bonne page de Planning+.
+
+Le script garde en cache la dernière réponse : hors ligne, le widget affiche les dernières données avec la mention « hors ligne ».
+
+## API utilisée
+
+`GET /api/v1/widget?days=3` renvoie en un appel : EDT jour par jour, cours en cours/suivant, ce soir, DS, khôlles, CB, devoirs, semaine, série, matières délaissées, post-its. Actions : `POST /api/v1/homework/:id/done`, `/api/v1/sessions/:id/mode`, `/api/v1/notes/:id/done`, `/api/v1/sync`, `/api/v1/homework`, `/api/v1/notes`.

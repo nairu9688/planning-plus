@@ -11,6 +11,9 @@ Tous les appels utilisent l'en-tête `Authorization: Bearer <token>` (token cré
 | POST | `APP/api/v1/homework` | `{"title","subject","dueDate","dueTime","description"}` | Crée un devoir (→ Google Tasks) |
 | POST | `APP/api/v1/homework/:id/done` | — | Coche un devoir |
 | POST | `APP/api/v1/notes` | `{"content","color","dueDate"}` | Ajoute un post-it |
+| GET | `APP/api/v1/widget?days=3` | — | Toutes les données des widgets |
+| POST | `APP/api/v1/notes/:id/done` | — | Range un post-it |
+| POST | `APP/api/v1/sync` | — | Synchro Google immédiate |
 | POST | `APP/api/v1/sessions/:id/mode` | `{"mode":"etude"\|"maison"}` ou vide (bascule) | Interrupteur étude / maison |
 
 `subject` accepte la clé (`maths`, `eco`, `droit`, `management`, `anglais`, `espagnol`, `lettres`, `philo`) ou le début du nom (« Droit », « Éco »…).
@@ -44,7 +47,7 @@ Nomme le raccourci « Ajoute un devoir » pour le lancer à la voix.
 
 ## Widget Scriptable
 
-Script : [`docs/scriptable/planning-plus-widget.js`](scriptable/planning-plus-widget.js). Tailles petit / moyen / grand ; paramètre de widget `devoir` pour ouvrir l'ajout de devoir au toucher.
+Voir [`docs/WIDGETS.md`](WIDGETS.md) : 10 types de widgets (EDT 3 jours, devoirs, khôlles, DS, tableaux de bord…), 4 tailles, écran verrouillé, boutons d'action.
 
 ## Serveur MCP
 
