@@ -31,3 +31,5 @@ Les écarts et précisions décidés depuis sont dans [`docs/DECISIONS.md`](docs
 - `npm test` — tests unitaires
 - `npm run typecheck` — TypeScript
 - `npm run build` — build de production
+
+Mise en route (OAuth Google, clés, déploiement) : [`docs/SETUP.md`](docs/SETUP.md). Raccourcis, API, MCP : [`docs/SHORTCUTS.md`](docs/SHORTCUTS.md).
