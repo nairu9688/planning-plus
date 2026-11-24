@@ -30,6 +30,8 @@ describe("matchSubject — titres réels du calendrier", () => {
     ["Khôlle Économie (Singer)", "5", "eco"],
     ["Khôlle Lettres & Philo (Gay)", "10", "lettres"],
     ["Khôlle Maths (Lemintier)", "11", "maths"],
+    ["Synthèse N°1", "4", "droit"],
+    ["Etude de cas ECT1 N°1", "2", "management"],
   ])("%s → %s", (title, colorId, expected) => {
     expect(matchSubject(title, colorId)).toBe(expected);
   });
@@ -85,6 +87,22 @@ describe("classifyEvent", () => {
   it("DS en CB détecté", () => {
     const r = classifyEvent(PRIMARY, ev("DS - Philosophie N°2 (anticipée du CB)"), ctx);
     expect(r).toMatchObject({ kind: "ds", isCB: true });
+  });
+
+  it.each([
+    ["Synthèse N°2", "4", "droit", 2],
+    ["Synthèse N°3 (anticipée du CB)", "4", "droit", 3],
+    ["Etude de cas ECT1 N°3", "2", "management", 3],
+    ["Etude de cas Ecricome ECT1 N°2", "2", "management", 2],
+    ["Etude de Cas N°5 ECT1", "2", "management", 5],
+    ["DS - LV1 Elvi N°5 (CB)", "7", "anglais", 5],
+  ])("épreuve numérotée sans « DS » : %s → ds / %s", (title, colorId, subject, n) => {
+    const r = classifyEvent(PRIMARY, ev(title, { colorId }), ctx);
+    expect(r).toMatchObject({ kind: "ds", subjectKey: subject, dsNumber: n });
+  });
+
+  it("un cours n'a jamais de N° : reste un cours", () => {
+    expect(classifyEvent(PRIMARY, ev("Droit (Huguet)", { colorId: "9" }), ctx)?.kind).toBe("cours");
   });
 
   it("« DSCG » ou « Dsfr » n'est pas un DS", () => {

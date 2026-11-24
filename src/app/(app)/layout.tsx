@@ -3,6 +3,8 @@ import { QuickAddProvider } from "@/components/shell/quick-add";
 import { BottomTabs, Sidebar } from "@/components/shell/nav";
 import { CommandPalette, type SearchEntry } from "@/components/shell/command-palette";
 import { AutoSync } from "@/components/shell/auto-sync";
+import { NavigationProgress } from "@/components/shell/navigation-progress";
+import { Suspense } from "react";
 import { loadDs, loadKholles } from "@/lib/data/exams";
 import { formatDayShort } from "@/lib/format";
 
@@ -33,6 +35,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <BottomTabs />
       <CommandPalette entries={entries} />
       <AutoSync />
+      <Suspense>
+        <NavigationProgress />
+      </Suspense>
     </QuickAddProvider>
   );
 }

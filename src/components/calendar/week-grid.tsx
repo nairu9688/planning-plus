@@ -328,7 +328,7 @@ function EventSheet({ event, onClose, subjects, events }: { event: GridEvent | n
               <option value="kholle">Khôlle</option>
               <option value="autre">Autre</option>
             </select>
-            <button className="btn btn-primary col-span-2" disabled={pending}>
+            <button className="btn btn-primary col-span-2" disabled={pending} aria-busy={pending}>
               Enregistrer
             </button>
           </form>

@@ -65,7 +65,7 @@ function ThemeCard({ current }: { current: Settings["theme"] }) {
     <Card title="Thème">
       <div className="inline-flex p-0.5 rounded-xl bg-surface-2 text-sm">
         {(["system", "light", "dark"] as const).map((t) => (
-          <button key={t} disabled={pending} onClick={() => apply(t)} className={cn("px-4 h-8 rounded-[10px]", current === t ? "bg-surface shadow-sm font-medium" : "text-muted")}>
+          <button key={t} disabled={pending} aria-busy={pending} onClick={() => apply(t)} className={cn("px-4 h-8 rounded-[10px]", current === t ? "bg-surface shadow-sm font-medium" : "text-muted")}>
             {t === "system" ? "Système" : t === "light" ? "Clair" : "Sombre"}
           </button>
         ))}
@@ -110,11 +110,11 @@ function SyncCard({ settings }: { settings: Settings }) {
           {settings.last_sync_error && <span className="block text-warning mt-1">{settings.last_sync_error}</span>}
         </p>
         <div className="flex gap-2">
-          <button className="btn btn-outline" disabled={pending}>Enregistrer</button>
+          <button className="btn btn-outline" disabled={pending} aria-busy={pending}>Enregistrer</button>
           <button
             type="button"
             className="btn btn-primary"
-            disabled={pending}
+            disabled={pending} aria-busy={pending}
             onClick={() =>
               start(async () => {
                 const r = await syncNow();
@@ -206,7 +206,7 @@ function RulesCard({ rules, weekA, neglected }: { rules: SessionRules; weekA: st
           <span>Matière délaissée après (jours)</span>
           <input type="number" name="neglected" min={1} defaultValue={neglected} className="input h-9 w-40" />
         </div>
-        <button className="btn btn-outline" disabled={pending}>Enregistrer</button>
+        <button className="btn btn-outline" disabled={pending} aria-busy={pending}>Enregistrer</button>
         {msg && <p className="text-xs text-muted">{msg}</p>}
       </form>
     </Card>
@@ -239,7 +239,7 @@ function HolidaysCard({ holidays }: { holidays: HolidayPeriod[] }) {
         </button>
         <button
           className="btn btn-outline"
-          disabled={pending}
+          disabled={pending} aria-busy={pending}
           onClick={() =>
             start(async () => {
               await updateSettings({ holidays: list.filter((h) => h.start && h.end) });
@@ -310,13 +310,13 @@ function NotificationsCard({ prefs, vapidPublicKey }: { prefs: Settings["notific
         ))}
       </div>
       <div className="flex flex-wrap gap-2 mt-3">
-        <button className="btn btn-outline" disabled={pending} onClick={() => start(async () => { await updateSettings({ notification_prefs: state as Record<string, boolean> }); setMsg("Préférences enregistrées"); })}>
+        <button className="btn btn-outline" disabled={pending} aria-busy={pending} onClick={() => start(async () => { await updateSettings({ notification_prefs: state as Record<string, boolean> }); setMsg("Préférences enregistrées"); })}>
           Enregistrer
         </button>
         <button className="btn btn-primary" onClick={enable}>
           <Bell className="size-4" /> Activer sur cet appareil
         </button>
-        <button className="btn btn-ghost" disabled={pending} onClick={() => start(async () => { const r = await sendTestPush(); setMsg(r.sent ? `Test envoyé (${r.sent})` : (r.skipped ?? "Aucun appareil abonné")); })}>
+        <button className="btn btn-ghost" disabled={pending} aria-busy={pending} onClick={() => start(async () => { const r = await sendTestPush(); setMsg(r.sent ? `Test envoyé (${r.sent})` : (r.skipped ?? "Aucun appareil abonné")); })}>
           Tester
         </button>
       </div>
@@ -355,7 +355,7 @@ function TokensCard({ tokens, appUrl }: { tokens: { id: string; name: string; to
         }}
       >
         <input className="input h-9" placeholder="Nom (ex. iPhone Scriptable)" value={name} onChange={(e) => setName(e.target.value)} />
-        <button className="btn btn-outline" disabled={pending}>Créer</button>
+        <button className="btn btn-outline" disabled={pending} aria-busy={pending}>Créer</button>
       </form>
       {created && (
         <div className="mt-3 rounded-xl bg-primary-tint p-3 text-sm space-y-1">

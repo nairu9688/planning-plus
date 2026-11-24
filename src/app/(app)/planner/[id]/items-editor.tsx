@@ -241,7 +241,7 @@ export function AddItemForm({
             </select>
           </div>
         )}
-        <button className="btn btn-primary" disabled={pending}>
+        <button className="btn btn-primary" disabled={pending} aria-busy={pending}>
           <Plus className="size-4" /> Ajouter
         </button>
       </div>

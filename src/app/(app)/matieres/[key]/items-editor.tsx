@@ -64,7 +64,7 @@ export function SubjectItemsEditor({ subjectId, items }: { subjectId: string; it
         {type === "__custom" && <input className="input h-9 w-32" placeholder="Type" value={customType} onChange={(e) => setCustomType(e.target.value)} />}
         <input className="input h-9 w-16" placeholder="N°" inputMode="numeric" value={num} onChange={(e) => setNum(e.target.value)} />
         <input className="input h-9 flex-1 min-w-40" placeholder="Titre" value={title} onChange={(e) => setTitle(e.target.value)} />
-        <button className="btn btn-outline" disabled={pending || !title.trim()}>
+        <button className="btn btn-outline" aria-busy={pending} disabled={pending || !title.trim()}>
           <Plus className="size-4" />
         </button>
       </form>

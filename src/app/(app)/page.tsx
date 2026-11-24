@@ -4,20 +4,22 @@ import { requireUser } from "@/lib/data/auth";
 import { loadDashboard } from "@/lib/data/dashboard";
 import { loadGrid } from "@/lib/data/week";
 import { formatCountdown } from "@/lib/domain/countdown";
-import { addDays, dateKey, toParis } from "@/lib/domain/time";
+import { dateKey, mondayOf, toParis } from "@/lib/domain/time";
 import { cn, formatDayLong, formatDayShort, formatMinutes, formatTime, greeting, relativeDay } from "@/lib/format";
 import { Card, Empty, Gauge, SubjectDot } from "@/components/ui/misc";
 import { PaletteTrigger } from "@/components/shell/command-palette";
 import { QuickAddButton } from "@/components/shell/quick-add";
 import { SyncButton } from "@/components/shell/auto-sync";
-import { WeekGrid } from "@/components/calendar/week-grid";
+import { WeekPlanner } from "@/components/dashboard/week-planner";
 import { HomeworkCheck, ModeToggle, NotesBoard, TonightActions } from "@/components/dashboard/widgets";
 
 export default async function DashboardPage() {
   const { supabase, user, ctx } = await requireUser();
   const now = new Date();
-  const d = await loadDashboard(supabase, ctx, now);
-  const grid = await loadGrid(supabase, ctx, d.monday, 7);
+  const [d, grid] = await Promise.all([
+    loadDashboard(supabase, ctx, now),
+    loadGrid(supabase, ctx, mondayOf(dateKey(now)), 7),
+  ]);
   const subj = (id: string | null) => (id ? ctx.subjectById.get(id) : undefined);
   const firstName = (user.user_metadata?.full_name as string | undefined)?.split(" ")[0] ?? "";
 
@@ -146,6 +148,9 @@ export default async function DashboardPage() {
         </Card>
       </div>
 
+      {/* Planning de la semaine (repliable, navigation sans quitter la page) */}
+      <WeekPlanner initial={{ monday: d.monday, week: d.week, ...grid }} today={d.today} subjects={ctx.subjects} />
+
       {d.neglected.length > 0 && (
         <div className="flex flex-wrap items-center gap-2 rounded-xl border border-warning/40 bg-warning/5 px-3 py-2 text-sm">
           <AlertTriangle className="size-4 text-warning" />
@@ -252,11 +257,6 @@ export default async function DashboardPage() {
             )}
           </div>
         </div>
-      </Card>
-
-      {/* Planning de la semaine */}
-      <Card title={`Planning de la semaine · ${formatDayShort(d.monday)} → ${formatDayShort(addDays(d.monday, 6))}`} action={<Link href="/calendrier" className="text-xs text-primary font-medium">Ouvrir le calendrier</Link>}>
-        <WeekGrid days={Array.from({ length: 7 }, (_, i) => addDays(d.monday, i))} events={grid.events} sessions={grid.sessions} subjects={ctx.subjects} today={d.today} compact />
       </Card>
     </div>
   );

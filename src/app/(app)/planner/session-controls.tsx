@@ -10,10 +10,10 @@ export function SuggestionActions({ id }: { id: string }) {
   const [pending, start] = useTransition();
   return (
     <div className="flex gap-1.5">
-      <button className="btn btn-primary h-8" disabled={pending} onClick={() => start(() => acceptSuggestion(id))}>
+      <button className="btn btn-primary h-8" disabled={pending} aria-busy={pending} onClick={() => start(() => acceptSuggestion(id))}>
         <Check className="size-4" /> Accepter
       </button>
-      <button className="btn btn-ghost h-8" disabled={pending} onClick={() => start(() => removeSession(id))} title="Retirer (ne sera pas régénérée)">
+      <button className="btn btn-ghost h-8" disabled={pending} aria-busy={pending} onClick={() => start(() => removeSession(id))} title="Retirer (ne sera pas régénérée)">
         <X className="size-4" />
       </button>
     </div>
@@ -101,7 +101,7 @@ export function SessionSettings({
             <button
               type="button"
               className="btn btn-danger"
-              disabled={pending}
+              disabled={pending} aria-busy={pending}
               onClick={() =>
                 start(async () => {
                   if (!confirm(session.generated ? "Retirer cette session ? Elle ne sera pas régénérée." : "Supprimer cette session ?")) return;
@@ -112,7 +112,7 @@ export function SessionSettings({
             >
               {session.generated ? "Retirer" : "Supprimer"}
             </button>
-            <button className="btn btn-primary" disabled={pending}>Enregistrer</button>
+            <button className="btn btn-primary" disabled={pending} aria-busy={pending}>Enregistrer</button>
           </div>
         </form>
       </Sheet>

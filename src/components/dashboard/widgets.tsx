@@ -15,7 +15,7 @@ export function HomeworkCheck({ id, done, className }: { id: string; done: boole
   return (
     <button
       aria-label={done ? "Marquer à faire" : "Marquer fait"}
-      disabled={pending}
+      disabled={pending} aria-busy={pending}
       onClick={(e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -40,7 +40,7 @@ export function ModeToggle({ sessionId, mode }: { sessionId: string; mode: "etud
       {(["etude", "maison"] as const).map((m) => (
         <button
           key={m}
-          disabled={pending || m === mode}
+          aria-busy={pending} disabled={pending || m === mode}
           onClick={() => start(() => setSessionMode(sessionId, m))}
           className={cn("px-3 h-7 rounded-[10px] transition-colors", m === mode ? "bg-surface shadow-sm text-text" : "text-muted")}
         >

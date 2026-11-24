@@ -26,7 +26,7 @@ export function SyncButton({ lastSync, error }: { lastSync: string | null; error
     <button
       className={cn("btn btn-ghost text-xs text-muted", error && "text-warning")}
       title={msg ?? error ?? label}
-      disabled={pending}
+      disabled={pending} aria-busy={pending}
       onClick={() =>
         start(async () => {
           const r = await syncNow();

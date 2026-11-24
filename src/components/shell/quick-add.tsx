@@ -148,7 +148,7 @@ function SessionQuickForm({ detail, onDone }: { detail: QuickAddDetail; onDone: 
       </div>
       {error && <p className="text-sm text-danger">{error}</p>}
       <div className="flex justify-end">
-        <button className="btn btn-primary" disabled={pending}>Créer et remplir</button>
+        <button className="btn btn-primary" disabled={pending} aria-busy={pending}>Créer et remplir</button>
       </div>
     </form>
   );
@@ -189,7 +189,7 @@ function NoteQuickForm({ onDone, date }: { onDone: () => void; date?: string }) 
         <input type="date" className="input w-auto" value={due} onChange={(e) => setDue(e.target.value)} aria-label="Pour le" />
       </div>
       <div className="flex justify-end">
-        <button className="btn btn-primary" disabled={pending || !content.trim()}>Ajouter</button>
+        <button className="btn btn-primary" aria-busy={pending} disabled={pending || !content.trim()}>Ajouter</button>
       </div>
     </form>
   );
@@ -220,7 +220,7 @@ function LinkQuickForm({ onDone }: { onDone: () => void }) {
       <p className="text-xs text-muted">Pour rattacher un lien à un DS, une khôlle ou une matière, ajoute-le depuis sa page.</p>
       {error && <p className="text-sm text-danger">{error}</p>}
       <div className="flex justify-end">
-        <button className="btn btn-primary" disabled={pending}>Ajouter</button>
+        <button className="btn btn-primary" disabled={pending} aria-busy={pending}>Ajouter</button>
       </div>
     </form>
   );

@@ -24,7 +24,7 @@ export function CbPeriodForm({ period }: { period: CbPeriod }) {
         <button
           type="button"
           className="btn btn-danger"
-          disabled={pending}
+          disabled={pending} aria-busy={pending}
           onClick={() =>
             start(async () => {
               if (!confirm("Supprimer cette période ? Les DS restent, ils sont simplement détachés.")) return;
@@ -35,7 +35,7 @@ export function CbPeriodForm({ period }: { period: CbPeriod }) {
         >
           Supprimer
         </button>
-        <button className="btn btn-outline" disabled={pending}>Enregistrer</button>
+        <button className="btn btn-outline" disabled={pending} aria-busy={pending}>Enregistrer</button>
       </div>
     </form>
   );

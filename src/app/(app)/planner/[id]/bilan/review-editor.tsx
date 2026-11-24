@@ -52,7 +52,7 @@ export function ReviewEditor({
       </div>
       <button
         className="btn btn-primary w-full h-11"
-        disabled={pending}
+        disabled={pending} aria-busy={pending}
         onClick={() =>
           start(async () => {
             await validateReview(sessionId, comment);
@@ -153,7 +153,7 @@ function AddExtra({ sessionId, subjects, onDone }: { sessionId: string; subjects
         </div>
         <div className="flex gap-1">
           <button type="button" className="btn btn-ghost" onClick={onDone}>Annuler</button>
-          <button className="btn btn-primary" disabled={pending}>Ajouter</button>
+          <button className="btn btn-primary" disabled={pending} aria-busy={pending}>Ajouter</button>
         </div>
       </div>
     </form>

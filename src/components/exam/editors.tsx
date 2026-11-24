@@ -83,7 +83,7 @@ export function PrepTopicsEditor({
           </select>
         )}
         <input className="input h-9 flex-1 min-w-40" placeholder="Chapitre au programme" value={title} onChange={(e) => setTitle(e.target.value)} />
-        <button className="btn btn-outline" disabled={pending || (!title.trim() && !itemId)}>
+        <button className="btn btn-outline" aria-busy={pending} disabled={pending || (!title.trim() && !itemId)}>
           <Plus className="size-4" />
         </button>
       </form>
@@ -124,7 +124,7 @@ export function PrepTasksEditor({ targetType, targetId, tasks }: { targetType: "
         }}
       >
         <input className="input h-9" placeholder="Ex. Retravailler le DS4" value={title} onChange={(e) => setTitle(e.target.value)} />
-        <button className="btn btn-outline" disabled={pending || !title.trim()}>
+        <button className="btn btn-outline" aria-busy={pending} disabled={pending || !title.trim()}>
           <Plus className="size-4" />
         </button>
       </form>
@@ -170,7 +170,7 @@ export function LinksEditor({ targetType, targetId, links }: { targetType: strin
       >
         <input className="input h-9 flex-1 min-w-40" placeholder="https://…" value={url} onChange={(e) => setUrl(e.target.value)} />
         <input className="input h-9 w-40" placeholder="Libellé" value={label} onChange={(e) => setLabel(e.target.value)} />
-        <button className="btn btn-outline" disabled={pending || !url.trim()}>
+        <button className="btn btn-outline" aria-busy={pending} disabled={pending || !url.trim()}>
           <Plus className="size-4" />
         </button>
       </form>
@@ -205,7 +205,7 @@ export function GradeEditor({ kind, id, grade, gradeMax, notes }: { kind: "ds" |
         {kind === "ds" ? <input className="input h-9 w-16" inputMode="numeric" value={max} onChange={(e) => setMax(e.target.value)} /> : <span className="text-sm">20</span>}
       </div>
       <textarea className="input" placeholder="Notes (remarques, erreurs à retenir…)" value={n} onChange={(e) => setN(e.target.value)} />
-      <button className="btn btn-outline" disabled={pending}>{saved ? "Enregistré" : "Enregistrer"}</button>
+      <button className="btn btn-outline" disabled={pending} aria-busy={pending}>{saved ? "Enregistré" : "Enregistrer"}</button>
     </form>
   );
 }
@@ -235,7 +235,7 @@ export function CbPicker({ dsId, current, periods, candidate }: { dsId: string; 
             {periods.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
           <input className="input h-9 w-44" placeholder="ou nouvelle (CB décembre)" value={name} onChange={(e) => setName(e.target.value)} />
-          <button className="btn btn-outline" disabled={pending || !name.trim()} onClick={() => start(() => setDsCbPeriod(dsId, { name }).then(() => setName("")))}>
+          <button className="btn btn-outline" aria-busy={pending} disabled={pending || !name.trim()} onClick={() => start(() => setDsCbPeriod(dsId, { name }).then(() => setName("")))}>
             Créer
           </button>
         </div>
@@ -276,7 +276,7 @@ export function KholleQuestions({ kholleId, questions }: { kholleId: string; que
         }}
       >
         <input className="input h-9" placeholder="Question de cours" value={q} onChange={(e) => setQ(e.target.value)} />
-        <button className="btn btn-outline" disabled={pending || !q.trim()}>
+        <button className="btn btn-outline" aria-busy={pending} disabled={pending || !q.trim()}>
           <Plus className="size-4" />
         </button>
       </form>

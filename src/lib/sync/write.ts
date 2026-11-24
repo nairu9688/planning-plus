@@ -1,6 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
+  GoogleApiError,
   createCalendar,
   deleteEvent,
   deleteTask,
@@ -19,6 +20,25 @@ import { env } from "@/lib/env";
 
 export const TASK_LIST_TITLE = "Prépa";
 export const PLANNING_CALENDAR_TITLE = "Planning+";
+
+/** L'objet n'existe plus côté Google (supprimé à la main, liste/calendrier effacé…). */
+export function isGone(e: unknown) {
+  return e instanceof GoogleApiError && (e.status === 404 || e.status === 410);
+}
+
+/** La liste Tasks a disparu : on l'oublie, et tous les devoirs seront recréés dans la nouvelle. */
+async function resetTaskList(db: SupabaseClient, ctx: UserContext) {
+  ctx.settings.tasks_list_id = null;
+  await db.from("settings").update({ tasks_list_id: null }).eq("user_id", ctx.userId);
+  await db.from("homework").update({ google_task_id: null, google_synced_at: null }).eq("user_id", ctx.userId);
+}
+
+/** Le calendrier « Planning+ » a disparu : idem pour les sessions. */
+async function resetPlanningCalendar(db: SupabaseClient, ctx: UserContext) {
+  ctx.settings.planning_calendar_id = null;
+  await db.from("settings").update({ planning_calendar_id: null }).eq("user_id", ctx.userId);
+  await db.from("study_sessions").update({ google_event_id: null, google_synced_at: null }).eq("user_id", ctx.userId);
+}
 
 async function taskListId(db: SupabaseClient, ctx: UserContext, token: string) {
   if (ctx.settings.tasks_list_id) return ctx.settings.tasks_list_id;
@@ -52,8 +72,15 @@ export async function pushHomework(db: SupabaseClient, ctx: UserContext, token: 
   const listId = await taskListId(db, ctx, token);
   const t = homeworkTask(ctx, h);
   let taskId = h.google_task_id;
-  if (taskId) await updateTask(token, listId, taskId, t);
-  else taskId = await insertTask(token, listId, t);
+  if (taskId) {
+    try {
+      await updateTask(token, listId, taskId, t);
+    } catch (e) {
+      if (!isGone(e)) throw e;
+      taskId = null; // tâche supprimée dans Google Tasks : Planning+ fait foi, on la recrée
+    }
+  }
+  if (!taskId) taskId = await insertTask(token, listId, t);
   // On ne touche pas updated_at (trigger) : google_synced_at sert de marqueur.
   await db
     .from("homework")
@@ -71,8 +98,16 @@ export async function removeHomeworkTask(db: SupabaseClient, ctx: UserContext, t
  * 2. Pousse les devoirs créés / modifiés depuis la dernière synchro.
  */
 export async function syncHomework(db: SupabaseClient, ctx: UserContext, token: string) {
-  const listId = await taskListId(db, ctx, token);
-  const tasks = await listTasks(token, listId);
+  let listId = await taskListId(db, ctx, token);
+  let tasks;
+  try {
+    tasks = await listTasks(token, listId);
+  } catch (e) {
+    if (!isGone(e)) throw e;
+    await resetTaskList(db, ctx);
+    listId = await taskListId(db, ctx, token);
+    tasks = await listTasks(token, listId);
+  }
   const completed = new Map(tasks.filter((t) => t.status === "completed" && !t.deleted).map((t) => [t.id, t]));
 
   const { data: open } = await db
@@ -94,12 +129,19 @@ export async function syncHomework(db: SupabaseClient, ctx: UserContext, token: 
 
   const { data: all } = await db.from("homework").select("*").eq("user_id", ctx.userId);
   let pushed = 0;
+  const errors: string[] = [];
   for (const h of (all ?? []) as (Homework & { google_synced_at: string | null })[]) {
     const dirty = !h.google_task_id || !h.google_synced_at || new Date(h.updated_at) > new Date(h.google_synced_at);
     if (!dirty) continue;
-    await pushHomework(db, ctx, token, h);
-    pushed++;
+    try {
+      await pushHomework(db, ctx, token, h);
+      pushed++;
+    } catch (e) {
+      errors.push(`« ${h.title} » : ${e instanceof Error ? e.message : e}`);
+    }
   }
+  // Un devoir en échec n'empêche pas les autres ; l'erreur remonte pour être affichée.
+  if (errors.length) throw new Error(`${errors.length} devoir(s) non synchronisé(s) — ${errors[0]}`);
   return { pulled, pushed };
 }
 
@@ -120,7 +162,7 @@ function sessionEvent(s: StudySession, items: SessionItem[], ctx: UserContext) {
 }
 
 /** Pousse les sessions confirmées vers le calendrier « Planning+ » ; retire les suggestions/ignorées. */
-export async function syncSessionsToCalendar(db: SupabaseClient, ctx: UserContext, token: string) {
+export async function syncSessionsToCalendar(db: SupabaseClient, ctx: UserContext, token: string, retried = false): Promise<{ pushed: number }> {
   const calId = await planningCalendarId(db, ctx, token);
   const from = addDays(dateKey(new Date()), -14);
   const { data: sessions } = await db
@@ -129,27 +171,44 @@ export async function syncSessionsToCalendar(db: SupabaseClient, ctx: UserContex
     .eq("user_id", ctx.userId)
     .gte("date", from);
   let pushed = 0;
+  const errors: string[] = [];
+  const synced = () => new Date(Date.now() + 2000).toISOString();
+
   for (const s of (sessions ?? []) as (StudySession & { updated_at: string; google_synced_at: string | null })[]) {
-    const confirmed = s.status === "prevue" || s.status === "bilan_fait";
-    if (!confirmed) {
-      if (s.google_event_id) {
-        await deleteEvent(token, calId, s.google_event_id);
-        await db.from("study_sessions").update({ google_event_id: null, google_synced_at: new Date(Date.now() + 2000).toISOString() }).eq("id", s.id);
+    try {
+      const confirmed = s.status === "prevue" || s.status === "bilan_fait";
+      if (!confirmed) {
+        if (s.google_event_id) {
+          await deleteEvent(token, calId, s.google_event_id); // 404/410 déjà ignorés
+          await db.from("study_sessions").update({ google_event_id: null, google_synced_at: synced() }).eq("id", s.id);
+        }
+        continue;
       }
-      continue;
+      const dirty = !s.google_event_id || !s.google_synced_at || new Date(s.updated_at) > new Date(s.google_synced_at);
+      if (!dirty) continue;
+      const ev = sessionEvent(s, s.items ?? [], ctx);
+      let eventId = s.google_event_id;
+      if (eventId) {
+        try {
+          await updateEvent(token, calId, eventId, ev);
+        } catch (e) {
+          if (!isGone(e)) throw e;
+          eventId = null; // événement supprimé dans Google Agenda : Planning+ fait foi, on le recrée
+        }
+      }
+      if (!eventId) eventId = await insertEvent(token, calId, ev);
+      await db.from("study_sessions").update({ google_event_id: eventId, google_synced_at: synced() }).eq("id", s.id);
+      pushed++;
+    } catch (e) {
+      // Calendrier « Planning+ » supprimé : on le recrée une fois et on repousse tout.
+      if (isGone(e) && !retried) {
+        await resetPlanningCalendar(db, ctx);
+        return syncSessionsToCalendar(db, ctx, token, true);
+      }
+      errors.push(e instanceof Error ? e.message : String(e));
     }
-    const dirty = !s.google_event_id || !s.google_synced_at || new Date(s.updated_at) > new Date(s.google_synced_at);
-    if (!dirty) continue;
-    const ev = sessionEvent(s, s.items ?? [], ctx);
-    let eventId = s.google_event_id;
-    if (eventId) await updateEvent(token, calId, eventId, ev);
-    else eventId = await insertEvent(token, calId, ev);
-    await db
-      .from("study_sessions")
-      .update({ google_event_id: eventId, google_synced_at: new Date(Date.now() + 2000).toISOString() })
-      .eq("id", s.id);
-    pushed++;
   }
+  if (errors.length) throw new Error(`${errors.length} session(s) non synchronisée(s) — ${errors[0]}`);
   return { pushed };
 }
 

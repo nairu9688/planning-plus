@@ -104,7 +104,7 @@ export function HomeworkForm({ subjects, draft, onDone }: { subjects: Subject[];
           <button
             type="button"
             className="btn btn-danger"
-            disabled={pending}
+            disabled={pending} aria-busy={pending}
             onClick={() =>
               start(async () => {
                 if (!confirm("Supprimer ce devoir ? Il sera aussi retiré de Google Tasks.")) return;
@@ -118,7 +118,7 @@ export function HomeworkForm({ subjects, draft, onDone }: { subjects: Subject[];
         ) : (
           <span />
         )}
-        <button className="btn btn-primary" disabled={pending}>
+        <button className="btn btn-primary" disabled={pending} aria-busy={pending}>
           {pending ? "Enregistrement…" : d.id ? "Enregistrer" : "Ajouter le devoir"}
         </button>
       </div>

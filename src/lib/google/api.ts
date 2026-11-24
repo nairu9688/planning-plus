@@ -21,7 +21,15 @@ async function g<T>(token: string, url: string, init: RequestInit = {}): Promise
   });
   if (res.status === 204) return undefined as T;
   const text = await res.text();
-  if (!res.ok) throw new GoogleApiError(res.status, `Google ${res.status} sur ${url.split("?")[0]} : ${text.slice(0, 300)}`);
+  if (!res.ok) {
+    let reason = text.slice(0, 160);
+    try {
+      reason = JSON.parse(text)?.error?.message ?? reason;
+    } catch {}
+    const what = url.includes("/tasks/") || url.includes("tasks.googleapis") ? "Google Tasks" : "Google Agenda";
+    console.error(`[google] ${res.status} ${init.method ?? "GET"} ${url.split("?")[0]} ${text.slice(0, 300)}`);
+    throw new GoogleApiError(res.status, `${what} ${res.status} (${reason})`);
+  }
   return (text ? JSON.parse(text) : undefined) as T;
 }
 

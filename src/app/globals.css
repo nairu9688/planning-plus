@@ -110,6 +110,24 @@ body {
   }
 }
 
+/* Bouton en cours d'action : spinner automatique (aria-busy="true"). */
+.btn[aria-busy="true"]::before,
+.chip[aria-busy="true"]::before {
+  content: "";
+  width: 0.9em;
+  height: 0.9em;
+  flex-shrink: 0;
+  border-radius: 9999px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  animation: pp-spin 0.7s linear infinite;
+}
+@keyframes pp-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .pb-safe {
   padding-bottom: max(env(safe-area-inset-bottom), 0.5rem);
 }

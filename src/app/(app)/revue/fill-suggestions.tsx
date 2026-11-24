@@ -50,7 +50,7 @@ function Row({ s, sessions }: { s: Suggestion; sessions: SessionOption[] }) {
       <input type="number" min={5} step={5} className="input h-8 w-16 text-xs" value={minutes} onChange={(e) => setMinutes(Number(e.target.value))} />
       <button
         className="btn btn-outline h-8"
-        disabled={pending || added}
+        aria-busy={pending} disabled={pending || added}
         onClick={() =>
           start(async () => {
             await addSessionItem(sessionId, {

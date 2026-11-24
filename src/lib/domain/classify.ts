@@ -56,6 +56,9 @@ const KEYWORD_RULES: Array<[RegExp, SubjectKey]> = [
   [/\bphilo/, "philo"],
   [/\blettres\b/, "lettres"],
   [/\bmath/, "maths"],
+  // Épreuves de concours sans nom de matière.
+  [/\betude de cas\b/, "management"],
+  [/\bsynthese\b/, "droit"],
   [/\beco(?:n\w*)?\b/, "eco"],
   [/\besh\b/, "eco"],
   [/\bdroit\b/, "droit"],
@@ -84,8 +87,12 @@ export function parseDsTitle(title: string): { number: number | null; isCB: bool
   return { number: m ? Number(m[1]) : null, isCB: /\bCB\b/.test(title) };
 }
 
+/**
+ * DS : titre commençant par « DS », ou épreuve numérotée « N°x »
+ * (« Synthèse N°2 », « Etude de cas ECT1 N°3 ») — les cours ne sont jamais numérotés.
+ */
 export function isDsTitle(title: string): boolean {
-  return /^\s*DS\b/.test(title);
+  return /^\s*DS\b/.test(title) || /\bn\s*°\s*\d+/i.test(title) || /devoir surveill|concours blanc/i.test(title);
 }
 
 function extractTeacher(title: string): string | null {

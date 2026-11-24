@@ -95,18 +95,18 @@ export function FocusMode({ sessionId, items, running, endAt }: { sessionId: str
           <p className={cn("text-6xl sm:text-7xl font-semibold tabular-nums", elapsed > item.planned * 60 && "text-warning")}>{fmt(elapsed)}</p>
           <div className="flex gap-3">
             {startedAt ? (
-              <button className="btn btn-outline h-12 px-5" onClick={pause} disabled={pending}>
+              <button className="btn btn-outline h-12 px-5" onClick={pause} disabled={pending} aria-busy={pending}>
                 <Pause className="size-5" /> Pause
               </button>
             ) : (
-              <button className="btn btn-primary h-12 px-5" onClick={play} disabled={pending}>
+              <button className="btn btn-primary h-12 px-5" onClick={play} disabled={pending} aria-busy={pending}>
                 <Play className="size-5" /> Démarrer
               </button>
             )}
-            <button className="btn btn-primary h-12 px-5" onClick={() => goNext(true)} disabled={pending}>
+            <button className="btn btn-primary h-12 px-5" onClick={() => goNext(true)} disabled={pending} aria-busy={pending}>
               <Check className="size-5" /> Fait
             </button>
-            <button className="btn btn-ghost h-12 px-4" onClick={() => goNext(false)} disabled={pending} title="Passer">
+            <button className="btn btn-ghost h-12 px-4" onClick={() => goNext(false)} disabled={pending} aria-busy={pending} title="Passer">
               <SkipForward className="size-5" />
             </button>
           </div>
