@@ -5,7 +5,8 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireUser } from "@/lib/data/auth";
 import { loadUpcomingExams } from "@/lib/data/exams";
-import { dateKey, parisDateTime } from "@/lib/domain/time";
+import { parisDateTime } from "@/lib/domain/time";
+import { ensureReview } from "@/lib/data/review";
 import { maisonToggle, type SessionKind } from "@/lib/domain/sessions";
 import { resolveTarget, type TargetChoice } from "@/lib/domain/targets";
 import type { SubjectKey } from "@/lib/domain/subjects";
@@ -253,37 +254,7 @@ export async function deleteSessionItem(id: string) {
 /** Ouvre le bilan : fige une copie du prévu (une seule fois). */
 export async function openReview(sessionId: string) {
   const { supabase, user } = await requireUser();
-  const { data: existing } = await supabase.from("session_reviews").select("id").eq("session_id", sessionId).maybeSingle();
-  if (existing) return;
-  const { data: items } = await supabase.from("session_items").select("*").eq("session_id", sessionId).order("sort_order");
-  const { data: s } = await supabase.from("study_sessions").select("start_at, end_at, kind").eq("id", sessionId).single();
-  // Durées réelles pré-remplies par le chrono Focus.
-  const ids = (items ?? []).map((i) => i.id);
-  const { data: logs } = ids.length
-    ? await supabase.from("focus_logs").select("session_item_id, started_at, ended_at").in("session_item_id", ids)
-    : { data: [] };
-  const focus = new Map<string, number>();
-  for (const l of logs ?? []) {
-    if (!l.ended_at) continue;
-    const m = Math.round((new Date(l.ended_at).getTime() - new Date(l.started_at).getTime()) / 60_000);
-    focus.set(l.session_item_id, (focus.get(l.session_item_id) ?? 0) + m);
-  }
-  for (const it of (items ?? []) as SessionItem[]) {
-    if (it.actual_minutes === null) {
-      await supabase
-        .from("session_items")
-        .update({ actual_minutes: focus.get(it.id) ?? it.planned_minutes })
-        .eq("id", it.id);
-    }
-  }
-  await supabase.from("session_reviews").upsert(
-    {
-      user_id: user.id,
-      session_id: sessionId,
-      planned_snapshot: { session: s, items: items ?? [] },
-    },
-    { onConflict: "session_id", ignoreDuplicates: true },
-  );
+  await ensureReview(supabase, user.id, sessionId);
   revalidatePath(`/planner/${sessionId}/bilan`);
 }
 
@@ -331,8 +302,4 @@ export async function stopFocus() {
   const { supabase, user } = await requireUser();
   await supabase.from("focus_logs").update({ ended_at: new Date().toISOString() }).eq("user_id", user.id).is("ended_at", null);
   revalidatePath("/planner", "layout");
-}
-
-export async function todayKey() {
-  return dateKey(new Date());
 }

@@ -43,8 +43,17 @@ export function QuickAddProvider({ subjects, children }: { subjects: Subject[]; 
   useEffect(() => {
     const on = (e: Event) => open((e as CustomEvent<QuickAddDetail>).detail);
     window.addEventListener("pp:quick-add", on);
+    // Lien profond (widgets Scriptable, Raccourcis) : /?nouveau=devoir&matiere=droit&date=2026-11-27
+    const sp = new URLSearchParams(window.location.search);
+    const t = sp.get("nouveau") as QuickAddType | null;
+    if (t && TABS.some((x) => x.type === t)) {
+      const key = sp.get("matiere");
+      open({ type: t, date: sp.get("date") ?? undefined, subjectId: subjects.find((s) => s.key === key)?.id });
+      sp.delete("nouveau");
+      window.history.replaceState(null, "", `${window.location.pathname}${sp.size ? `?${sp}` : ""}`);
+    }
     return () => window.removeEventListener("pp:quick-add", on);
-  }, [open]);
+  }, [open, subjects]);
 
   const type = detail?.type ?? "devoir";
   const isEdit = !!detail?.homework?.id;

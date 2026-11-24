@@ -1,5 +1,5 @@
 import "server-only";
-import webpush from "web-push";
+import * as webpush from "web-push";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { env } from "@/lib/env";
 
