@@ -1,7 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { addDays, dateKey, diffDays, mondayOf, parisDateTime, weekLetter } from "@/lib/domain/time";
-import { computeCountdown, type Countdown } from "@/lib/domain/countdown";
+import { computeCountdown, formatCountdown, type Countdown } from "@/lib/domain/countdown";
 import { prepGauge, workedMinutesFor, type PrepStatus } from "@/lib/domain/targets";
 import type { UserContext } from "@/lib/data/context";
 import { loadDs, loadKholles, type DsWithEvent, type KholleWithEvent } from "@/lib/data/exams";
@@ -38,6 +38,10 @@ export interface DeadlineRow {
   href: string;
   worked7d?: number;
   status?: string;
+  gauge?: number | null;
+  countdownText?: string;
+  location?: string | null;
+  priority?: string;
 }
 
 /** Charge les données des cartes DS / khôlles (compte à rebours, jauge, travail 7 j). */
@@ -123,9 +127,9 @@ export async function loadDashboard(db: SupabaseClient, ctx: UserContext, now = 
   // Échéances des 3 prochaines semaines.
   const hw = (homework ?? []) as Homework[];
   const deadlines: DeadlineRow[] = [
-    ...cards.ds.filter((d) => new Date(d.start) <= horizon).map((d) => ({ kind: "ds" as const, id: d.id, title: d.title, at: d.start, subjectId: d.subjectId, href: d.href, worked7d: d.worked7d })),
-    ...cards.kholles.map((k) => ({ kind: "kholle" as const, id: k.id, title: k.title, at: k.start, subjectId: k.subjectId, href: k.href, worked7d: k.worked7d })),
-    ...hw.filter((h) => h.due_at && new Date(h.due_at) <= horizon).map((h) => ({ kind: "homework" as const, id: h.id, title: h.title, at: h.due_at, subjectId: h.subject_id, href: `/devoirs?id=${h.id}`, status: h.status })),
+    ...cards.ds.filter((d) => new Date(d.start) <= horizon).map((d) => ({ kind: "ds" as const, id: d.id, title: d.title, at: d.start, subjectId: d.subjectId, href: d.href, worked7d: d.worked7d, gauge: d.gauge, countdownText: formatCountdown(d.countdown), location: d.location })),
+    ...cards.kholles.map((k) => ({ kind: "kholle" as const, id: k.id, title: k.title, at: k.start, subjectId: k.subjectId, href: k.href, worked7d: k.worked7d, gauge: k.gauge, countdownText: formatCountdown(k.countdown), location: k.location })),
+    ...hw.filter((h) => h.due_at && new Date(h.due_at) <= horizon).map((h) => ({ kind: "homework" as const, id: h.id, title: h.title, at: h.due_at, subjectId: h.subject_id, href: `/devoirs?id=${h.id}`, status: h.status, priority: h.priority })),
   ].sort((a, b) => (a.at ?? "").localeCompare(b.at ?? ""));
 
   // Ce qui reste cette semaine.

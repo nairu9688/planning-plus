@@ -5,13 +5,15 @@ import { loadDashboard } from "@/lib/data/dashboard";
 import { loadGrid } from "@/lib/data/week";
 import { formatCountdown } from "@/lib/domain/countdown";
 import { dateKey, mondayOf, toParis } from "@/lib/domain/time";
-import { cn, formatDayLong, formatDayShort, formatMinutes, formatTime, greeting, relativeDay } from "@/lib/format";
+import { cn, formatDayLong, formatDayShort, formatMinutes, formatTime, greeting } from "@/lib/format";
 import { Card, Empty, Gauge, SubjectDot } from "@/components/ui/misc";
 import { PaletteTrigger } from "@/components/shell/command-palette";
 import { QuickAddButton } from "@/components/shell/quick-add";
 import { SyncButton } from "@/components/shell/auto-sync";
 import { WeekPlanner } from "@/components/dashboard/week-planner";
-import { HomeworkCheck, ModeToggle, NotesBoard, TonightActions } from "@/components/dashboard/widgets";
+import { DeadlinesWeeks } from "@/components/dashboard/deadlines-weeks";
+import { RemainingTabs } from "@/components/dashboard/remaining-tabs";
+import { ModeToggle, NotesBoard, TonightActions } from "@/components/dashboard/widgets";
 
 export default async function DashboardPage() {
   const { supabase, user, ctx } = await requireUser();
@@ -164,77 +166,35 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      <div className="grid lg:grid-cols-3 gap-3">
-        {/* Échéances */}
-        <Card title="Échéances des 3 prochaines semaines" className="lg:col-span-2">
-          {d.deadlines.length ? (
-            <ul className="divide-y divide-border -my-1">
-              {d.deadlines.map((r) => (
-                <li key={`${r.kind}-${r.id}`}>
-                  <Link href={r.href} className="flex items-center gap-3 py-2 hover:bg-surface-2 -mx-2 px-2 rounded-lg">
-                    {r.kind === "homework" ? <HomeworkCheck id={r.id} done={false} /> : <span className={cn("text-[10px] font-bold w-5 text-center", r.kind === "ds" ? "text-danger" : "text-primary")}>{r.kind === "ds" ? "DS" : "KH"}</span>}
-                    <SubjectDot color={subj(r.subjectId)?.color} />
-                    <span className={cn("flex-1 truncate text-sm", r.kind !== "homework" && "font-semibold")}>{r.title}</span>
-                    {r.worked7d !== undefined && <span className="text-xs text-muted hidden sm:inline">{formatMinutes(r.worked7d)} sur 7 j</span>}
-                    <span className="text-xs text-muted w-24 text-right">{r.at ? relativeDay(dateKey(r.at), d.today) : "—"}</span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <Empty>Rien dans les 3 prochaines semaines.</Empty>
-          )}
-        </Card>
+      <DeadlinesWeeks rows={d.deadlines} monday={d.monday} today={d.today} subjects={ctx.subjectById} />
 
-        {/* Ce qui reste cette semaine */}
-        <Card title="Ce qui reste cette semaine">
-          <div className="space-y-3 text-sm">
-            <Group title="Devoirs">
-              {d.remaining.homework.length ? (
-                d.remaining.homework.map((h) => (
-                  <li key={h.id} className="flex items-center gap-2">
-                    <HomeworkCheck id={h.id} done={false} />
-                    <SubjectDot color={subj(h.subject_id)?.color} />
-                    <Link href={`/devoirs?id=${h.id}`} className="flex-1 truncate">{h.title}</Link>
-                    <span className="text-xs text-muted">{h.due_at ? formatDayShort(h.due_at) : ""}</span>
-                  </li>
-                ))
-              ) : (
-                <li className="text-muted">Aucun devoir</li>
-              )}
-            </Group>
-            <Group title="Révisions planifiées">
-              {d.remaining.revisions.length ? (
-                d.remaining.revisions.map((i) => (
-                  <li key={i.id} className="flex items-center gap-2">
-                    <SubjectDot color={subj(i.subject_id)?.color} />
-                    <Link href={`/planner/${i.session_id}`} className="flex-1 truncate">{i.description ?? subj(i.subject_id)?.name}</Link>
-                    <span className="text-xs text-muted">{formatDayShort(i.session.start_at)}</span>
-                  </li>
-                ))
-              ) : (
-                <li className="text-muted">Aucune révision en attente</li>
-              )}
-            </Group>
-            <Group title="À faire avant DS / khôlles">
-              {d.remaining.prepTasks.length ? (
-                d.remaining.prepTasks.map((t) => (
-                  <li key={t.id} className="flex items-center gap-2">
-                    <span className="size-1.5 rounded-full bg-primary" />
-                    <Link href={t.target_type === "ds" ? `/ds/${t.target_id}` : `/kholles/${t.target_id}`} className="flex-1 truncate">{t.title}</Link>
-                  </li>
-                ))
-              ) : (
-                <li className="text-muted">Rien</li>
-              )}
-            </Group>
-          </div>
-        </Card>
-      </div>
+      <div className="grid lg:grid-cols-2 gap-3">
+        <RemainingTabs
+          groups={[
+            {
+              key: "devoirs",
+              label: "Devoirs",
+              more: "/devoirs?echeance=semaine",
+              rows: d.remaining.homework.map((h) => ({ id: h.id, label: h.title, color: subj(h.subject_id)?.color, meta: h.due_at ? formatDayShort(h.due_at) : undefined, href: `/devoirs?id=${h.id}`, homework: true })),
+            },
+            {
+              key: "revisions",
+              label: "Révisions",
+              more: "/planner",
+              rows: d.remaining.revisions.map((i) => ({ id: i.id, label: i.description ?? subj(i.subject_id)?.name ?? "Révision", color: subj(i.subject_id)?.color, meta: formatDayShort(i.session.start_at), href: `/planner/${i.session_id}` })),
+            },
+            {
+              key: "prep",
+              label: "Avant DS/KH",
+              more: "/ds",
+              rows: d.remaining.prepTasks.map((t) => ({ id: t.id, label: t.title, href: t.target_type === "ds" ? `/ds/${t.target_id}` : `/kholles/${t.target_id}` })),
+            },
+          ]}
+        />
 
       {/* Bilan de la semaine passée */}
-      <Card title="Bilan de la semaine passée">
-        <div className="grid sm:grid-cols-3 gap-4 text-sm">
+      <Card title="Bilan de la semaine passée" className="min-w-0">
+        <div className="grid grid-cols-2 gap-4 text-sm">
           <div>
             <p className="text-2xl font-semibold">{formatMinutes(d.lastWeek.real)}</p>
             <p className="text-muted">réels sur {formatMinutes(d.lastWeek.planned)} prévus</p>
@@ -245,7 +205,7 @@ export default async function DashboardPage() {
             </p>
             <p className="text-muted">sessions avec bilan</p>
           </div>
-          <div className="flex flex-wrap gap-1.5 content-start">
+          <div className="col-span-2 flex flex-wrap gap-1.5 content-start">
             {d.lastWeek.bySubject.length ? (
               d.lastWeek.bySubject.map(([id, m]) => (
                 <span key={id} className="chip">
@@ -258,13 +218,14 @@ export default async function DashboardPage() {
           </div>
         </div>
       </Card>
+      </div>
     </div>
   );
 }
 
 function Indicator({ icon: Icon, label, href, children }: { icon: React.ElementType; label: string; href?: string; children: React.ReactNode }) {
   const body = (
-    <div className="card card-pad h-full hover:border-primary/40 transition-colors">
+    <div className="card card-pad h-full min-w-0 hover:border-primary/40 transition-colors">
       <p className="flex items-center gap-1.5 text-xs font-medium text-muted mb-2">
         <Icon className="size-3.5" /> {label}
       </p>
@@ -286,11 +247,3 @@ function Bar({ label, value, muted }: { label: string; value: number; muted?: bo
   );
 }
 
-function Group({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <p className="text-xs font-medium text-muted mb-1.5">{title}</p>
-      <ul className="space-y-1.5">{children}</ul>
-    </div>
-  );
-}

@@ -17,7 +17,7 @@ export function SubjectChip({ subject, className }: { subject?: Subject | null; 
 
 export function Card({ title, action, children, className }: { title?: React.ReactNode; action?: React.ReactNode; children: React.ReactNode; className?: string }) {
   return (
-    <section className={cn("card card-pad", className)}>
+    <section className={cn("card card-pad min-w-0", className)}>
       {(title || action) && (
         <div className="flex items-center justify-between gap-2 mb-3">
           {title && <h2 className="section-title">{title}</h2>}
