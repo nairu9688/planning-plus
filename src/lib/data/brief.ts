@@ -6,6 +6,7 @@ import { computeCountdown } from "@/lib/domain/countdown";
 import { parseKholleInfo } from "@/lib/domain/kholle";
 import { addDays, dateKey, diffDays, parisDateTime, timeKey, weekdayOf } from "@/lib/domain/time";
 import { loadDs } from "@/lib/data/exams";
+import { env } from "@/lib/env";
 import type { CalendarEvent } from "@/lib/types";
 
 const WEEKDAYS = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
@@ -86,7 +87,7 @@ export async function getTonightForShortcut(db: SupabaseClient, ctx: UserContext
     .order("start_at")
     .limit(1);
   const s = data?.[0];
-  if (!s) return { hasSession: false, text: "Pas de session prévue ce soir." };
+  if (!s) return { hasSession: false, active: "non", startsSoon: "non", text: "Pas de session prévue ce soir." };
   const items = ((s.items ?? []) as { removed_in_review: boolean }[]).filter((i) => !i.removed_in_review).length;
   return {
     hasSession: true,
@@ -97,6 +98,11 @@ export async function getTonightForShortcut(db: SupabaseClient, ctx: UserContext
     startISO: s.start_at,
     endISO: s.end_at,
     minutesUntilStart: Math.max(0, Math.round((new Date(s.start_at).getTime() - now.getTime()) / 60000)),
+    // Champs texte faciles à comparer dans Raccourcis (« Si … est oui »).
+    active: "oui",
+    startsSoon: new Date(s.start_at).getTime() - now.getTime() <= 15 * 60_000 ? "oui" : "non",
+    endTime: hh(s.end_at),
+    focusUrl: `${env.appUrl()}/planner/${s.id}/focus`,
     text: `Session ${s.kind === "maison" ? "maison" : "étude"} de ${hh(s.start_at)} à ${hh(s.end_at)}, ${items} élément${items > 1 ? "s" : ""}. Concentration activée jusqu'à ${hh(s.end_at)}.`,
   };
 }

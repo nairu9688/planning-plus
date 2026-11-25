@@ -67,7 +67,12 @@ export function FocusMode({ sessionId, items, running, endAt }: { sessionId: str
   return (
     <div className="fixed inset-0 z-[70] bg-bg flex flex-col">
       <div className="flex items-center justify-between p-4">
-        <span className="text-sm text-muted">Fin de session dans {fmt(remainingSession)}</span>
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-muted">Fin de session dans {fmt(remainingSession)}</span>
+          <a href={`shortcuts://run-shortcut?name=${encodeURIComponent("Planning+ Concentration")}`} className="btn btn-outline h-8 text-xs" title="Lance le raccourci « Planning+ Concentration » (voir docs/RACCOURCIS.md)">
+            🌙 Concentration iPhone
+          </a>
+        </div>
         <button
           className="btn btn-ghost"
           onClick={() =>

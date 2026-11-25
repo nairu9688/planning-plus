@@ -7,6 +7,7 @@ import { loadItemsBetween, realMinutes } from "@/lib/data/work";
 import { formatCountdown } from "@/lib/domain/countdown";
 import { parseKholleInfo } from "@/lib/domain/kholle";
 import { workStreak } from "@/lib/domain/streak";
+import { getFocusStatus } from "@/lib/focus";
 import { addDays, dateKey, diffDays, mondayOf, parisDateTime, timeKey, weekdayOf } from "@/lib/domain/time";
 import type { CalendarEvent, Homework, Note, StudySession, SessionItem } from "@/lib/types";
 
@@ -84,6 +85,7 @@ export async function getWidgetData(db: SupabaseClient, ctx: UserContext, opts: 
   ]);
 
   const cards = await examCards(db, ctx, dsAll.slice(0, 6), khAll.slice(0, 6), now);
+  const focus = await getFocusStatus(db, ctx);
   const khIds = khAll.slice(0, 6).map((k) => k.id);
   const [{ data: questions }, { data: prepTasks }] = await Promise.all([
     khIds.length ? db.from("kholle_questions").select("kholle_id, status").in("kholle_id", khIds) : Promise.resolve({ data: [] }),
@@ -184,6 +186,7 @@ export async function getWidgetData(db: SupabaseClient, ctx: UserContext, opts: 
 
   return {
     generatedAt: now.toISOString(),
+    focus,
     today,
     todayLabel: `${DAY_LONG[weekdayOf(today)]} ${Number(today.slice(8))}`,
     week: dash.week,

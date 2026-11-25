@@ -25,7 +25,9 @@ Un seul script, [`scriptable/planning-plus-widget.js`](scriptable/planning-plus-
 | `postits` | 1 post-it | 2 post-its | 6 post-its ; toucher = ranger |
 | `actions` | 4 boutons | 4 boutons | 8 boutons : devoir, post-it, étude/maison, Focus, Bilan, synchro, calendrier, revue |
 
-**Écran verrouillé** (même script, aucun paramètre nécessaire) : rond = soirs avant le prochain DS, rectangle = cours en cours/suivant (sinon ce soir), ligne = prochain DS + compte à rebours.
+**Écran verrouillé** (même script, aucun paramètre nécessaire) : rond = soirs avant le prochain DS, rectangle = **chrono Focus en cours** (minuteur en direct, toucher = l'arrêter) sinon cours en cours/suivant (sinon ce soir), ligne = prochain DS + compte à rebours.
+
+Le widget `actions` a un bouton **Focus libre** : choix de la matière, puis chrono ou minutes déjà faites ; s'il y a un chrono en cours, le bouton l'arrête.
 
 Design v2 (25/11) : mêmes anneaux qu'à l'app (chiffre = soirs restants, anneau = préparation), « Ce soir » sur fond bleu marine avec la barre de remplissage par matière, couleurs Philo / Management mises à jour.
 

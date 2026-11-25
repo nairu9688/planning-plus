@@ -1141,7 +1141,18 @@ function wAccessory(d, family) {
     txt(w, e ? `${e.short} · ${e.countdownText}` : "Aucun DS");
     return w;
   }
-  // Rectangulaire : en cours / ensuite, sinon ce soir, sinon DS.
+  // Rectangulaire : chrono Focus en cours en priorité (minuteur en direct).
+  if (d.focus && d.focus.running) {
+    txt(w, "⏱ Focus en cours", { size: 11, weight: "bold", color: Color.white() });
+    txt(w, d.focus.label, { size: 13, weight: "heavy", color: Color.white() });
+    const t = w.addDate(new Date(d.focus.startedAt));
+    t.applyTimerStyle();
+    t.font = Font.boldRoundedSystemFont(13);
+    t.textColor = Color.white();
+    w.url = act("focus");
+    return w;
+  }
+  // Sinon : en cours / ensuite, sinon ce soir, sinon DS.
   const b = d.current || d.next;
   if (b) {
     txt(w, `${d.current ? "Maintenant" : "Ensuite"} · ${b.startLabel}`, { size: 11, weight: "bold", color: Color.white() });
