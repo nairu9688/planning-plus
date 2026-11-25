@@ -47,6 +47,12 @@ const DARK = Device.isUsingDarkAppearance();
 const hex = (h, a = 1) => new Color(h || "#8A93A6", a);
 const NOTE_BG = { yellow: "#FFF4C2", blue: "#DCEBFF", green: "#DDF5E3", pink: "#FFE0EA", purple: "#EDE3FF" };
 
+/** Texte d'un champ d'alerte ; certaines versions renvoient null pour un champ non modifié. */
+const fieldOf = (alert, i) => {
+  const v = alert.textFieldValue(i);
+  return typeof v === "string" ? v.trim() : "";
+};
+
 // ── Config / API ────────────────────────────────────────────────────────────
 function cfg() {
   return {
@@ -58,14 +64,42 @@ function cfg() {
 async function setup() {
   const a = new Alert();
   a.title = "Planning+";
-  a.message = "URL de l'app et token API (Réglages → Tokens API).";
+  a.message = "URL de l'app et token API (Réglages → Tokens API).\nAstuce : copie le token avant d'ouvrir cette fenêtre, il sera repris automatiquement si le champ reste vide.";
   a.addTextField("URL", cfg().url);
-  a.addSecureTextField("Token pp_…", cfg().token ?? "");
+  a.addTextField("Token pp_…", cfg().token ?? "");
   a.addAction("Enregistrer");
   a.addCancelAction("Annuler");
   if ((await a.presentAlert()) === -1) return false;
-  Keychain.set(KC_URL, a.textFieldValue(0).replace(/\/$/, ""));
-  Keychain.set(KC_TOKEN, a.textFieldValue(1).trim());
+  // Selon la version d'iOS / Scriptable, un champ non modifié peut revenir à null.
+  const field = (i) => fieldOf(a, i);
+  const url = (field(0) || cfg().url || DEFAULT_URL).replace(/\/$/, "");
+  let token = field(1) || cfg().token || "";
+  if (!token.startsWith("pp_")) {
+    const clip = (Pasteboard.pasteString() || "").trim();
+    if (clip.startsWith("pp_")) token = clip;
+  }
+  Keychain.set(KC_URL, url);
+  if (!token.startsWith("pp_")) {
+    const e = new Alert();
+    e.title = "Token manquant";
+    e.message = "Crée un token dans Planning+ (Réglages → Tokens API), copie-le, puis relance le script.";
+    e.addAction("OK");
+    await e.presentAlert();
+    return false;
+  }
+  Keychain.set(KC_TOKEN, token);
+  // Vérifie tout de suite que l'URL et le token marchent.
+  const ok = new Alert();
+  try {
+    const d = await api("/api/v1/widget?days=1");
+    ok.title = "Connecté ✓";
+    ok.message = `${d.todayLabel} · semaine ${d.week} · ${d.homeworkCounts.open} devoir(s) en cours.`;
+  } catch (err) {
+    ok.title = "Connexion impossible";
+    ok.message = `${err.message}\nVérifie l'URL (${url}) et le token.`;
+  }
+  ok.addAction("OK");
+  await ok.presentAlert();
   return true;
 }
 
@@ -1113,8 +1147,10 @@ async function runAction(q) {
         a.addAction("Ajouter");
         a.addCancelAction("Annuler");
         if ((await a.presentAlert()) === -1) return;
-        await api("/api/v1/homework", "POST", { title: a.textFieldValue(0), subject: a.textFieldValue(1), dueDate: a.textFieldValue(2) || null });
-        await notify("Devoir ajouté", a.textFieldValue(0));
+        const title = fieldOf(a, 0);
+        if (!title) return;
+        await api("/api/v1/homework", "POST", { title, subject: fieldOf(a, 1) || null, dueDate: fieldOf(a, 2) || null });
+        await notify("Devoir ajouté", title);
         break;
       }
       case "newnote": {
@@ -1124,7 +1160,9 @@ async function runAction(q) {
         a.addAction("Ajouter");
         a.addCancelAction("Annuler");
         if ((await a.presentAlert()) === -1) return;
-        await api("/api/v1/notes", "POST", { content: a.textFieldValue(0) });
+        const content = fieldOf(a, 0);
+        if (!content) return;
+        await api("/api/v1/notes", "POST", { content });
         await notify("Post-it ajouté");
         break;
       }
