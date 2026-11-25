@@ -29,6 +29,8 @@ const KC_STYLE = "planning-plus-style";
 // Style « verre » : pour un écran d'accueil transparent ou teinté (iOS repeint en blanc uni
 // tout fond de couleur). Les cartes et boutons sont alors dessinés par un contour, sans fond.
 let GLASS = false;
+// Mots du paramètre du widget (ex. « edt colonnes verre »).
+let PARAM_WORDS = [];
 const GLASS_LINE = new Color("#FFFFFF", 0.45);
 const DEFAULT_URL = "https://planning-plus-two.vercel.app";
 const SCRIPT = Script.name();
@@ -715,10 +717,79 @@ function wEdt(d, family) {
     return w;
   }
   const n = family === "extraLarge" ? 5 : 3;
-  header(w, `Emploi du temps · ${n} jours`, { icon: "calendar", right: `Sem. ${d.week}` });
-  w.addSpacer(6);
-  const width = family === "extraLarge" ? 690 : 320;
-  w.addImage(timeline(d.days.slice(0, n), { w: width, h: 300, nowMin: nowMinutes() }));
+  // Ancienne vue : jours en colonnes, dessinée (paramètre « edt colonnes »).
+  if (PARAM_WORDS.includes("colonnes")) {
+    header(w, `Emploi du temps · ${n} jours`, { icon: "calendar", right: `Sem. ${d.week}` });
+    w.addSpacer(6);
+    const width = family === "extraLarge" ? 690 : 320;
+    w.addImage(timeline(d.days.slice(0, n), { w: width, h: 300, nowMin: nowMinutes() }));
+    return w;
+  }
+  return edtAgenda(w, d, { days: 3, budget: family === "extraLarge" ? 26 : 16 });
+}
+
+/**
+ * EDT sur 3 jours, les jours empilés verticalement : pour chaque jour, ses cours en lignes
+ * (heure, barre de couleur de la matière, titre, salle). Les cours déjà finis aujourd'hui sont résumés.
+ */
+function edtAgenda(w, d, { days = 3, budget = 16 }) {
+  const nowMin = nowMinutes();
+  header(w, "Emploi du temps", { icon: "calendar", right: `Sem. ${d.week}` });
+  w.addSpacer(5);
+
+  const list = d.days.slice(0, days).map((day, i) => {
+    const all = [
+      ...day.events,
+      ...day.sessions.map((x) => ({ ...x, short: `Session ${x.kind === "maison" ? "maison" : x.kind === "etude" ? "étude" : x.kind}`, color: null, isSession: true, location: null })),
+    ].sort((a, b) => a.startMin - b.startMin);
+    const done = i === 0 ? all.filter((e) => e.endMin <= nowMin) : [];
+    const rest = i === 0 ? all.filter((e) => e.endMin > nowMin) : all;
+    return { day, i, rest, done };
+  });
+
+  // Répartit le nombre de lignes disponibles entre les jours (au moins 1 chacun).
+  const quota = list.map(() => 1);
+  let left = budget - list.length;
+  while (left > 0 && list.some((x, k) => x.rest.length > quota[k])) {
+    for (let k = 0; k < list.length && left > 0; k++) {
+      if (list[k].rest.length > quota[k]) {
+        quota[k]++;
+        left--;
+      }
+    }
+  }
+
+  list.forEach(({ day, i, rest, done }, k) => {
+    if (k > 0) w.addSpacer(5);
+    const h = row(w, 5);
+    txt(h, (i === 0 ? "Aujourd'hui" : day.label).toUpperCase(), { size: 9, weight: "heavy", color: i === 0 ? C.accent : C.muted });
+    if (i !== 0) txt(h, day.short, { size: 9, color: C.muted });
+    h.addSpacer();
+    if (rest.some((e) => e.kind === "ds")) pill(h, "DS", { bg: C.danger, size: 8 });
+    if (rest.some((e) => e.kind === "kholle")) pill(h, "Khôlle", { bg: C.accent, size: 8 });
+    if (done.length) txt(h, `${done.length} fini${done.length > 1 ? "s" : ""} ✓`, { size: 8.5, color: C.muted });
+    w.addSpacer(2);
+
+    if (!rest.length) {
+      txt(w, i === 0 && done.length ? "Plus rien aujourd'hui" : "Pas de cours", { size: 10.5, color: C.muted });
+      return;
+    }
+    const shown = rest.slice(0, quota[k]);
+    for (const e of shown) {
+      const live = i === 0 && e.startMin <= nowMin && e.endMin > nowMin;
+      const r = row(w, 5);
+      const tl = r.addStack();
+      tl.size = new Size(34, 0);
+      txt(tl, live ? "now" : e.startLabel, { size: 9.5, weight: live ? "heavy" : "semibold", color: live ? C.danger : C.muted, rounded: true });
+      bar(r, e.isSession ? "#7C9CE0" : e.color, 13);
+      const strong = e.kind === "ds" || e.kind === "kholle";
+      txt(r, e.short, { size: 10.5, weight: strong ? "heavy" : e.isSession ? "medium" : "semibold", color: e.isSession ? C.accent : C.text });
+      r.addSpacer();
+      txt(r, e.isSession ? `→ ${e.endLabel}` : (e.location || "").replace(/^Salle /, "S"), { size: 9, color: C.muted });
+    }
+    if (rest.length > shown.length) txt(w, `+ ${rest.length - shown.length} autre(s)`, { size: 8.5, color: C.muted });
+  });
+  w.addSpacer();
   return w;
 }
 
@@ -1195,6 +1266,7 @@ if (q.action) {
   Script.complete();
 } else if (config.runsInWidget) {
   const words = (args.widgetParameter || "tableau").trim().toLowerCase().split(/[\s,;:]+/);
+  PARAM_WORDS = words;
   const type = words.find((x) => BUILDERS[x]) || "tableau";
   const style = words.includes("verre") || words.includes("transparent") ? "verre" : words.includes("normal") ? "normal" : Keychain.contains(KC_STYLE) ? Keychain.get(KC_STYLE) : "normal";
   GLASS = style === "verre";
