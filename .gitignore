@@ -41,3 +41,7 @@ yarn-error.log*
 next-env.d.ts
 
 !.env.example
+
+# token API du widget et copie perso du script (jamais dans git)
+docs/scriptable/.token
+docs/scriptable/*.perso.js

@@ -23,6 +23,9 @@
 //  Écran verrouillé : rond = soirs avant le DS, rectangle = prochain cours ou ce soir, ligne = DS.
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Token API intégré : vide dans le dépôt, rempli dans la copie personnelle (tools/build-widget-personal.mjs).
+// S'il est renseigné, il remplace celui du trousseau : plus rien à saisir après un collage du script.
+const EMBEDDED_TOKEN = "";
 const KC_URL = "planning-plus-url";
 const KC_TOKEN = "planning-plus-token";
 const KC_STYLE = "planning-plus-style";
@@ -66,7 +69,7 @@ const fieldOf = (alert, i) => {
 function cfg() {
   return {
     url: Keychain.contains(KC_URL) ? Keychain.get(KC_URL) : DEFAULT_URL,
-    token: Keychain.contains(KC_TOKEN) ? Keychain.get(KC_TOKEN) : null,
+    token: EMBEDDED_TOKEN || (Keychain.contains(KC_TOKEN) ? Keychain.get(KC_TOKEN) : null),
   };
 }
 

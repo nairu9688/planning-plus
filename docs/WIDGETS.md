@@ -16,6 +16,10 @@ Un seul script, [`scriptable/planning-plus-widget.js`](scriptable/planning-plus-
 
 Sur iPad, à taille égale, les widgets sont moins hauts : le script détecte l'iPad (`Device.isPad()`) et affiche une ligne de moins là où il le faut ; l'agenda de l'EDT est redimensionné pour l'iPad.
 
+## Copie personnelle avec le token intégré
+
+Pour ne plus saisir le token après chaque mise à jour du script : mets le token dans `docs/scriptable/.token` puis lance `node tools/build-widget-personal.mjs`. Il produit `docs/scriptable/planning-plus-widget.perso.js`, à coller tel quel dans Scriptable. Ces deux fichiers sont ignorés par git : le token n'est jamais publié.
+
 ## Types de widgets
 
 | Paramètre | Petit | Moyen | Grand / très grand |
