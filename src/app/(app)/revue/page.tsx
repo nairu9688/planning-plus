@@ -7,6 +7,7 @@ import { addDays, dateKey, mondayOf, parisDateTime, weekdayOf } from "@/lib/doma
 import { formatCountdown } from "@/lib/domain/countdown";
 import { cn, formatDayShort, formatMinutes, formatTime } from "@/lib/format";
 import { Card, Gauge, PageHeader, SubjectDot } from "@/components/ui/misc";
+import { FillWeekButton } from "@/components/planner/fill-week";
 import { FillSuggestions, type Suggestion, type SessionOption } from "./fill-suggestions";
 import type { Homework, StudySession, SessionItem } from "@/lib/types";
 
@@ -245,7 +246,11 @@ export default async function ReviewPage({ searchParams }: { searchParams: Promi
             })}
           </ul>
         </Card>
-        <Card title="Ce qui manque">
+        <div className="card card-pad flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-muted">Laisse Planning+ répartir devoirs, révisions espacées et préparations dans tes sessions — tu valides avant.</p>
+          <FillWeekButton />
+        </div>
+        <Card title="Ce qui manque (ajout à la main)">
           <FillSuggestions suggestions={suggestions} sessions={options} />
         </Card>
       </div>

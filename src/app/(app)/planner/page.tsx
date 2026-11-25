@@ -7,6 +7,7 @@ import { cn, formatDayLong, formatMinutes, formatTime, keyToDate, relativeDay } 
 import { PageHeader, SubjectDot } from "@/components/ui/misc";
 import { QuickAddButton } from "@/components/shell/quick-add";
 import { SuggestionActions } from "./session-controls";
+import { FillWeekButton } from "@/components/planner/fill-week";
 import type { CalendarEvent, SessionItem, StudySession } from "@/lib/types";
 
 const KIND_LABEL: Record<string, string> = { etude: "Étude", maison: "Maison", suggestion: "Suggestion", bibliotheque: "Bibliothèque", sport: "Sport", libre: "Libre" };
@@ -44,10 +45,11 @@ export default async function PlannerPage({ searchParams }: { searchParams: Prom
         title="Study Planner"
         subtitle="Planifie tes sessions, remplis-les, fais le bilan."
         action={
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Link href={`/planner?from=${addDays(from, -7)}`} className="btn btn-outline w-9 p-0" aria-label="Plus tôt"><ChevronLeft className="size-4" /></Link>
             <Link href="/planner" className="btn btn-ghost">Aujourd&apos;hui</Link>
             <Link href={`/planner?from=${addDays(from, 7)}`} className="btn btn-outline w-9 p-0" aria-label="Plus tard"><ChevronRight className="size-4" /></Link>
+            <FillWeekButton className="btn-outline" />
             <QuickAddButton className="btn btn-primary" detail={{ type: "session" }}>
               <Plus className="size-4" /> Session
             </QuickAddButton>

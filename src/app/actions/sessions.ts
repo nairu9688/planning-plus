@@ -248,6 +248,31 @@ export async function deleteSessionItem(id: string) {
   refresh();
 }
 
+/** Ajoute une révision (chapitre) à la session du soir d'aujourd'hui, ou à la prochaine session prévue. */
+export async function planReviewSoon(subjectItemId: string, minutes = 20) {
+  const { supabase, user } = await requireUser();
+  const { data: s } = await supabase
+    .from("study_sessions")
+    .select("id")
+    .eq("user_id", user.id)
+    .eq("status", "prevue")
+    .gte("end_at", new Date().toISOString())
+    .order("start_at")
+    .limit(1)
+    .maybeSingle();
+  if (!s) throw new Error("Aucune session prévue à venir");
+  const { data: item } = await supabase.from("subject_items").select("title, subject_id").eq("id", subjectItemId).single();
+  await addSessionItem(s.id, {
+    itemType: "revision",
+    subjectId: item?.subject_id ?? null,
+    subjectItemId,
+    description: `Révision · ${item?.title ?? "chapitre"}`,
+    plannedMinutes: minutes,
+    target: "auto",
+  });
+  return s.id as string;
+}
+
 // ---------------------------------------------------------------------------
 // Bilan
 // ---------------------------------------------------------------------------

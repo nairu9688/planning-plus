@@ -13,14 +13,17 @@ import { SyncButton } from "@/components/shell/auto-sync";
 import { WeekPlanner } from "@/components/dashboard/week-planner";
 import { DeadlinesWeeks } from "@/components/dashboard/deadlines-weeks";
 import { RemainingTabs } from "@/components/dashboard/remaining-tabs";
+import { SpacedReviews } from "@/components/dashboard/spaced-reviews";
+import { loadSpacedReviews } from "@/lib/data/reviews";
 import { ModeToggle, NotesBoard, TonightActions } from "@/components/dashboard/widgets";
 
 export default async function DashboardPage() {
   const { supabase, user, ctx } = await requireUser();
   const now = new Date();
-  const [d, grid] = await Promise.all([
+  const [d, grid, reviews] = await Promise.all([
     loadDashboard(supabase, ctx, now),
     loadGrid(supabase, ctx, mondayOf(dateKey(now)), 7),
+    loadSpacedReviews(supabase, ctx, 0, now),
   ]);
   const subj = (id: string | null) => (id ? ctx.subjectById.get(id) : undefined);
   const firstName = (user.user_metadata?.full_name as string | undefined)?.split(" ")[0] ?? "";
@@ -168,7 +171,7 @@ export default async function DashboardPage() {
 
       <DeadlinesWeeks rows={d.deadlines} monday={d.monday} today={d.today} subjects={ctx.subjectById} />
 
-      <div className="grid lg:grid-cols-2 gap-3">
+      <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-3">
         <RemainingTabs
           groups={[
             {
@@ -190,6 +193,10 @@ export default async function DashboardPage() {
               rows: d.remaining.prepTasks.map((t) => ({ id: t.id, label: t.title, href: t.target_type === "ds" ? `/ds/${t.target_id}` : `/kholles/${t.target_id}` })),
             },
           ]}
+        />
+
+        <SpacedReviews
+          rows={reviews.map((r) => ({ itemId: r.itemId, title: r.title, subject: r.subject?.name ?? null, color: r.subject?.color ?? null, step: r.step, overdueDays: r.overdueDays }))}
         />
 
       {/* Bilan de la semaine passée */}
