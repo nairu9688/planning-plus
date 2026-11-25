@@ -38,6 +38,10 @@ Risques restants, non bloquants :
 
 ## 3. Propositions — fonctionnalités
 
+Réalisées le 25/11 : révisions espacées, « Remplis ma semaine », rappel 30 min avant la préparation de khôlle, calendrier 3 jours sur iPhone, objectifs hebdomadaires et moyenne pondérée avec simulateur.
+Maquettes de l'audit design (3 directions de tableau de bord + 6 composants) : https://claude.ai/artifact/UxVMMepPHr3c2UiSd7Zcj8
+
+
 1. **Révisions espacées** : pour chaque chapitre travaillé, proposer automatiquement des révisions à J+1, J+3, J+7, J+21 dans les sessions libres (utilise `last_worked_at`).
 2. **Remplissage automatique des sessions** : bouton « Remplis ma semaine » qui répartit devoirs (par échéance et durée estimée), préparations de DS proches peu avancées et matières délaissées dans les créneaux disponibles — tu valides ou ajustes.
 3. **Rappel de préparation de khôlle** : lire « Préparation : 17h10 » dans la description et notifier 30 min avant la prépa (pas seulement la veille).
