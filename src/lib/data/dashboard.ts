@@ -150,6 +150,10 @@ export async function loadDashboard(db: SupabaseClient, ctx: UserContext, now = 
   const bySubject = new Map<string, number>();
   for (const i of lastWeekItems) if (i.subject_id) bySubject.set(i.subject_id, (bySubject.get(i.subject_id) ?? 0) + realMinutes(i));
 
+  // Minutes réelles de la semaine par matière (objectifs hebdomadaires).
+  const weekBySubject: Record<string, number> = {};
+  for (const i of weekItems) if (i.subject_id) weekBySubject[i.subject_id] = (weekBySubject[i.subject_id] ?? 0) + realMinutes(i);
+
   // Matières délaissées (phase 3).
   const neglected = await neglectedSubjects(db, ctx, now);
 
@@ -164,6 +168,7 @@ export async function loadDashboard(db: SupabaseClient, ctx: UserContext, now = 
     nextKholle: cards.kholles[0] ?? null,
     cb,
     weekWork: { planned, real, pct: weekPct },
+    weekBySubject,
     tonight: tonightSession,
     notes: (notes ?? []) as Note[],
     deadlines,

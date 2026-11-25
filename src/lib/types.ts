@@ -26,6 +26,11 @@ export interface Settings {
   holidays: HolidayPeriod[];
   notification_prefs: { bilan?: boolean; kholle?: boolean; homework?: boolean; sunday?: boolean };
   neglected_after_days: number;
+  /** Objectif hebdomadaire en minutes, par clé de matière. */
+  weekly_goals: Record<string, number>;
+  /** Coefficient de concours, par clé de matière. */
+  coefficients: Record<string, number>;
+  target_average: number;
   last_sync_at: string | null;
   last_sync_error: string | null;
 }

@@ -108,6 +108,9 @@ export async function updateSettings(patch: {
   holidays?: HolidayPeriod[];
   notification_prefs?: Record<string, boolean>;
   neglected_after_days?: number;
+  weekly_goals?: Record<string, number>;
+  coefficients?: Record<string, number>;
+  target_average?: number;
 }) {
   const { supabase, user } = await requireUser();
   const { error } = await supabase.from("settings").update(patch).eq("user_id", user.id);

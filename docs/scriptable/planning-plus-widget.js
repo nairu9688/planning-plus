@@ -826,12 +826,17 @@ function wSemaine(d, family) {
     w.addSpacer(4);
     w.addImage(stacked(ww.bySubject.map((s) => ({ value: s.minutes, color: s.color })), { w: 300, h: 10 }));
     w.addSpacer(6);
-    for (const s of ww.bySubject.slice(0, 5)) {
+    // Objectifs hebdomadaires si définis, sinon le temps par matière.
+    const list = (ww.goals && ww.goals.length ? ww.goals : ww.bySubject).slice(0, 5);
+    for (const s of list) {
       const l = row(w, 6);
       dot(l, s.color, 7);
       txt(l, s.name, { size: 11 });
       l.addSpacer();
-      txt(l, fmtMin(s.minutes), { size: 11, weight: "semibold", color: C.muted });
+      if (s.goal) {
+        l.addImage(stacked([{ value: Math.min(s.minutes, s.goal), color: s.color }, { value: Math.max(0, s.goal - s.minutes), color: DARK ? "#2A3348" : "#E3E7EF" }], { w: 60, h: 6 }));
+        txt(l, `${fmtMin(s.minutes)}/${fmtMin(s.goal)}`, { size: 10, weight: "semibold", color: s.minutes >= s.goal ? C.ok : C.muted });
+      } else txt(l, fmtMin(s.minutes), { size: 11, weight: "semibold", color: C.muted });
     }
     if (d.neglected.length) {
       w.addSpacer(6);

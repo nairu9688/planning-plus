@@ -231,7 +231,10 @@ export async function getWidgetData(db: SupabaseClient, ctx: UserContext, opts: 
       plannedMinutes: dash.weekWork.planned,
       weekElapsed: dash.weekWork.pct,
       byDay,
-      bySubject: [...bySubjectMap.entries()].sort((a, b) => b[1] - a[1]).map(([id, minutes]) => ({ name: subjectName(id), color: color(id), minutes })),
+      bySubject: [...bySubjectMap.entries()].sort((a, b) => b[1] - a[1]).map(([id, minutes]) => ({ name: subjectName(id), color: color(id), minutes, goal: ctx.settings.weekly_goals?.[ctx.subjectById.get(id)?.key ?? ""] ?? 0 })),
+      goals: ctx.subjects
+        .filter((s) => (ctx.settings.weekly_goals?.[s.key] ?? 0) > 0)
+        .map((s) => ({ name: s.name, color: s.color, goal: ctx.settings.weekly_goals[s.key], minutes: bySubjectMap.get(s.id) ?? 0 })),
     },
     neglected: dash.neglected.slice(0, 3).map((n) => ({ name: n.subject.name, color: n.subject.color, days: n.days })),
     notes: ((notes ?? []) as Note[]).map((n) => ({ id: n.id, content: n.content, color: n.color, pinned: n.pinned })),

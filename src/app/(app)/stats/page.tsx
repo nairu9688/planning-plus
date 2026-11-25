@@ -5,6 +5,9 @@ import { loadItemsBetween, realMinutes } from "@/lib/data/work";
 import { addDays, dateKey, mondayOf } from "@/lib/domain/time";
 import { formatDayNum, formatMinutes, keyToDate } from "@/lib/format";
 import { Card, PageHeader, SubjectDot } from "@/components/ui/misc";
+import { GradeSimulator } from "@/components/stats/grade-simulator";
+import { loadGrades } from "@/lib/data/grades";
+import { formatDayShort } from "@/lib/format";
 
 const WEEKS = 8;
 
@@ -13,11 +16,12 @@ export default async function StatsPage() {
   const now = new Date();
   const today = dateKey(now);
   const firstMonday = addDays(mondayOf(today), -7 * (WEEKS - 1));
-  const [items, ds, kh, neglected] = await Promise.all([
+  const [items, ds, kh, neglected, gradeData] = await Promise.all([
     loadItemsBetween(supabase, ctx.userId, firstMonday, addDays(mondayOf(today), 6)),
     loadDs(supabase, ctx.userId),
     loadKholles(supabase, ctx.userId),
     neglectedSubjects(supabase, ctx, now),
+    loadGrades(supabase, ctx),
   ]);
 
   const weeks = Array.from({ length: WEEKS }, (_, i) => addDays(firstMonday, i * 7));
@@ -52,6 +56,17 @@ export default async function StatsPage() {
   return (
     <div className="space-y-4">
       <PageHeader title="Stats" subtitle={`${WEEKS} dernières semaines`} />
+
+      <Card title="Moyenne pondérée et simulateur">
+        <GradeSimulator
+          target={Number(ctx.settings.target_average ?? 12)}
+          subjects={ctx.subjects.map((sub) => {
+            const g = gradeData.dsGrades.find((x) => x.key === sub.key)!;
+            const n = gradeData.nextDs[sub.key];
+            return { ...g, name: sub.name, color: sub.color, nextDs: n ? `${n.title} · ${formatDayShort(n.start)}` : null };
+          })}
+        />
+      </Card>
 
       <Card title="Prévu vs réel par semaine">
         <div className="flex items-end gap-2 h-40">

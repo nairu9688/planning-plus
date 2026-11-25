@@ -17,6 +17,7 @@ import {
 import { Card } from "@/components/ui/misc";
 import { cn } from "@/lib/format";
 import type { HolidayPeriod } from "@/lib/domain/holidays";
+import { DEFAULT_COEFFICIENTS } from "@/lib/domain/grades";
 import type { SessionRules } from "@/lib/domain/sessions";
 import type { Settings, Subject } from "@/lib/types";
 
@@ -43,6 +44,7 @@ export function SettingsView({
       <SyncCard settings={settings} />
       <SubjectsCard subjects={subjects} />
       <RulesCard rules={rules} weekA={settings.week_a_reference_date} neglected={settings.neglected_after_days} />
+      <GoalsCoefCard subjects={subjects} settings={settings} />
       <HolidaysCard holidays={holidays} />
       <NotificationsCard prefs={settings.notification_prefs} vapidPublicKey={vapidPublicKey} />
       <TokensCard tokens={tokens} appUrl={appUrl} />
@@ -372,5 +374,61 @@ function TokensCard({ tokens, appUrl }: { tokens: { id: string; name: string; to
         API : <code>{appUrl}/api/v1/summary</code> · MCP : <code>{appUrl}/api/mcp</code> — en-tête <code>Authorization: Bearer &lt;token&gt;</code>.
       </p>
     </Card>
+  );
+}
+
+function GoalsCoefCard({ subjects, settings }: { subjects: Subject[]; settings: Settings }) {
+  const [pending, start] = useTransition();
+  const [msg, setMsg] = useState<string | null>(null);
+  const goals = settings.weekly_goals ?? {};
+  const coefs = settings.coefficients ?? {};
+  return (
+    <div id="objectifs">
+      <Card title="Objectifs hebdomadaires et coefficients">
+        <form
+          className="space-y-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            const f = new FormData(e.currentTarget);
+            const weekly_goals: Record<string, number> = {};
+            const coefficients: Record<string, number> = {};
+            for (const s of subjects) {
+              const h = Number(String(f.get(`goal-${s.key}`) ?? "").replace(",", "."));
+              if (h > 0) weekly_goals[s.key] = Math.round(h * 60);
+              const c = Number(f.get(`coef-${s.key}`));
+              if (!Number.isNaN(c)) coefficients[s.key] = c;
+            }
+            start(async () => {
+              await updateSettings({ weekly_goals, coefficients, target_average: Number(f.get("target")) || 12 });
+              setMsg("Enregistré");
+            });
+          }}
+        >
+          <div className="grid grid-cols-[1fr_88px_72px] gap-2 text-xs text-muted px-1">
+            <span>Matière</span>
+            <span>Heures / sem.</span>
+            <span>Coef.</span>
+          </div>
+          {subjects.map((s) => (
+            <div key={s.id} className="grid grid-cols-[1fr_88px_72px] gap-2 items-center text-sm">
+              <span className="flex items-center gap-2 min-w-0">
+                <span className="size-2.5 rounded-full shrink-0" style={{ background: s.color }} />
+                <span className="truncate">{s.name}</span>
+              </span>
+              <input name={`goal-${s.key}`} type="number" min={0} step={0.5} inputMode="decimal" defaultValue={goals[s.key] ? goals[s.key] / 60 : ""} placeholder="—" className="input h-9" />
+              <input name={`coef-${s.key}`} type="number" min={0} step={1} defaultValue={coefs[s.key] ?? DEFAULT_COEFFICIENTS[s.key] ?? 1} className="input h-9" />
+            </div>
+          ))}
+          <div className="grid grid-cols-[1fr_88px_72px] gap-2 items-center text-sm pt-2">
+            <span>Moyenne visée (simulateur)</span>
+            <input name="target" type="number" min={0} max={20} step={0.5} defaultValue={settings.target_average ?? 12} className="input h-9" />
+            <span />
+          </div>
+          <p className="text-xs text-muted">Coefficients indicatifs sur 30 : chaque école choisit les siens (voir son site ou concours-bce.com).</p>
+          <button className="btn btn-outline" disabled={pending} aria-busy={pending}>Enregistrer</button>
+          {msg && <p className="text-xs text-muted">{msg}</p>}
+        </form>
+      </Card>
+    </div>
   );
 }

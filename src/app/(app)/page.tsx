@@ -14,6 +14,7 @@ import { WeekPlanner } from "@/components/dashboard/week-planner";
 import { DeadlinesWeeks } from "@/components/dashboard/deadlines-weeks";
 import { RemainingTabs } from "@/components/dashboard/remaining-tabs";
 import { SpacedReviews } from "@/components/dashboard/spaced-reviews";
+import { GoalsCard } from "@/components/dashboard/goals-card";
 import { loadSpacedReviews } from "@/lib/data/reviews";
 import { ModeToggle, NotesBoard, TonightActions } from "@/components/dashboard/widgets";
 
@@ -171,7 +172,7 @@ export default async function DashboardPage() {
 
       <DeadlinesWeeks rows={d.deadlines} monday={d.monday} today={d.today} subjects={ctx.subjectById} />
 
-      <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-3">
+      <div className="grid md:grid-cols-2 gap-3">
         <RemainingTabs
           groups={[
             {
@@ -198,6 +199,8 @@ export default async function DashboardPage() {
         <SpacedReviews
           rows={reviews.map((r) => ({ itemId: r.itemId, title: r.title, subject: r.subject?.name ?? null, color: r.subject?.color ?? null, step: r.step, overdueDays: r.overdueDays }))}
         />
+
+        <GoalsCard subjects={ctx.subjects} goals={ctx.settings.weekly_goals ?? {}} minutes={d.weekBySubject} weekElapsed={d.weekWork.pct} />
 
       {/* Bilan de la semaine passée */}
       <Card title="Bilan de la semaine passée" className="min-w-0">
