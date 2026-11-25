@@ -763,19 +763,18 @@ function wEdt(d, family) {
     return w;
   }
   const n = family === "extraLarge" ? 5 : 3;
-  // Ancienne vue : jours en colonnes, dessinée (paramètre « edt colonnes »).
-  if (PARAM_WORDS.includes("colonnes")) {
-    header(w, `Emploi du temps · ${n} jours`, { icon: "calendar", right: `Sem. ${d.week}` });
-    w.addSpacer(6);
-    const width = family === "extraLarge" ? 690 : 320;
-    addImg(w, timeline(d.days.slice(0, n), { w: width, h: 300, nowMin: nowMinutes() }));
-    return w;
+  // Paramètre « edt liste » : une colonne par jour, cours en liste (sans échelle de temps).
+  if (PARAM_WORDS.includes("liste")) {
+    const colW = family === "extraLarge" ? 215 : PAD ? 100 : 106;
+    return edtAgenda(w, d, { days: 3, budget: family === "extraLarge" ? 13 : PAD ? 9 : 10, side: true, colW });
   }
-  // Paramètre « edt liste » : les 3 jours empilés les uns sous les autres.
-  if (PARAM_WORDS.includes("liste")) return edtAgenda(w, d, { days: 3, budget: family === "extraLarge" ? 13 : PAD ? 15 : 16, side: family === "extraLarge" });
-  // Par défaut : une colonne par jour, côte à côte, les cours de haut en bas.
-  const colW = family === "extraLarge" ? 215 : PAD ? 100 : 106;
-  return edtAgenda(w, d, { days: 3, budget: family === "extraLarge" ? 13 : PAD ? 9 : 10, side: true, colW });
+  // Par défaut : vue agenda dessinée, jours en colonnes, hauteur des cours proportionnelle à leur durée.
+  header(w, `Emploi du temps · ${n} jours`, { icon: "calendar", right: `Sem. ${d.week}` });
+  w.addSpacer(6);
+  const width = family === "extraLarge" ? 690 : PAD ? 316 : 338;
+  const height = PAD ? 282 : 322;
+  addImg(w, timeline(d.days.slice(0, n), { w: width, h: height, nowMin: nowMinutes() }));
+  return w;
 }
 
 /**

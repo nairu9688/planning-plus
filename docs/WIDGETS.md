@@ -14,14 +14,14 @@ Un seul script, [`scriptable/planning-plus-widget.js`](scriptable/planning-plus-
 
 [`scriptable/preview.html`](scriptable/preview.html) exécute le vrai script dans le navigateur avec des données d'exemple et affiche chaque type dans chaque taille, iPhone et iPad, en écran normal ou transparent, clair ou sombre, style normal ou verre. Les contenus qui débordent sont signalés. Après toute modification du script : `node tools/build-widget-preview.mjs`.
 
-Sur iPad, à taille égale, les widgets sont moins hauts : le script détecte l'iPad (`Device.isPad()`) et affiche une ligne de moins là où il le faut ; l'EDT est en colonnes, une par jour.
+Sur iPad, à taille égale, les widgets sont moins hauts : le script détecte l'iPad (`Device.isPad()`) et affiche une ligne de moins là où il le faut ; l'agenda de l'EDT est redimensionné pour l'iPad.
 
 ## Types de widgets
 
 | Paramètre | Petit | Moyen | Grand / très grand |
 |---|---|---|---|
 | `tableau` (défaut) | anneau DS (soirs restants, jauge de prépa) + devoirs + ce soir | « Ce soir » en grand (bleu marine, barre par matière, Focus / étude↔maison) ; sinon anneaux DS + khôlle | direction A : maintenant / ensuite avec minuteur, bande de la journée, « Ce soir » en grand, anneaux DS / khôlle (+ CB / semaine en très grand), à rendre |
-| `edt` | cours en cours / suivant | les prochains cours d'aujourd'hui | **3 jours en colonnes côte à côte** : une colonne par jour, les cours de haut en bas (heure, couleur de la matière, titre), badges DS / khôlle, cours finis résumés, cours en cours marqué « now ». Paramètre `edt liste` : les 3 jours empilés |
+| `edt` | cours en cours / suivant | les prochains cours d'aujourd'hui | **vue agenda dessinée** : 3 jours en colonnes (5 en très grand), cours placés à l'heure avec leur durée, khôlles encadrées, sessions hachurées, trait de l'heure actuelle. Paramètre `edt liste` : une colonne par jour en simple liste |
 | `maintenant` | cours en cours + suivant, minuteur en direct | idem | idem |
 | `devoirs` | anneau « cette semaine », retards | 4 devoirs avec **bouton pour cocher** | 9 devoirs groupés (en retard, aujourd'hui, demain, plus tard) + bouton « Devoir » |
 | `kholles` | prochaine khôlle (J-x, salle, préparation) | 2 khôlles | 4 khôlles : prof, salle, temps de prépa, questions à revoir |
