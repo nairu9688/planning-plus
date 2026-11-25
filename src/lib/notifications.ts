@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { addDays, dateKey, parisDateTime, timeKey, weekdayOf } from "@/lib/domain/time";
 import type { UserContext } from "@/lib/data/context";
 import { sendOnce } from "@/lib/push";
+import { kholleReminderAt, parseKholleInfo } from "@/lib/domain/kholle";
 
 function inWindow(now: Date, from: string, to: string) {
   const t = timeKey(now);
@@ -12,7 +13,7 @@ function inWindow(now: Date, from: string, to: string) {
 /**
  * Notifications planifiées (appelées toutes les 15 min) :
  * - 22h00 : rappel de bilan si la session du soir n'a pas de bilan ;
- * - 19h00 : veille de khôlle ;
+ * - 19h00 : veille de khôlle ; 30 min avant la préparation de khôlle ;
  * - 18h00 : devoirs dus demain ;
  * - dimanche 20h00 : résumé → revue du dimanche.
  */
@@ -59,6 +60,31 @@ export async function runNotifications(db: SupabaseClient, ctx: UserContext, now
         tag: "kholle",
       });
       results.push("kholle");
+    }
+  }
+
+  // 30 min avant la préparation de khôlle (heure lue dans la description), sinon avant le début.
+  if (prefs.kholle !== false) {
+    const { data } = await db
+      .from("calendar_events")
+      .select("id, title, start_at, location, description")
+      .eq("user_id", ctx.userId)
+      .eq("kind", "kholle")
+      .gte("start_at", parisDateTime(today).toISOString())
+      .lt("start_at", parisDateTime(addDays(today, 1)).toISOString());
+    for (const k of data ?? []) {
+      const at = kholleReminderAt(new Date(k.start_at), k.description);
+      const anchor = new Date(at.getTime() + 30 * 60_000);
+      if (now >= at && now < anchor) {
+        const info = parseKholleInfo(k.description);
+        await sendOnce(db, ctx.userId, `kholle-prep:${k.id}`, {
+          title: info.prep ? `Préparation à ${info.prep.replace(":", "h")}` : `Khôlle à ${(info.start ?? timeKey(k.start_at)).replace(":", "h")}`,
+          body: `${k.title}${k.location ? ` · ${k.location}` : ""}`,
+          url: "/kholles",
+          tag: "kholle-prep",
+        });
+        results.push("kholle-prep");
+      }
     }
   }
 

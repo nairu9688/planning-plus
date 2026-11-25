@@ -678,7 +678,7 @@ function wKholles(d, family) {
     r.addImage(ring({ size: 50, pct: Math.min(1, (k.worked7dMinutes || 0) / 120), color: hex(k.color), big: k.daysLeft === 0 ? "J" : `J-${k.daysLeft}`, bigSize: 13 }));
     const t = col(r, 0);
     txt(t, k.short.replace(/^Khôlle /, ""), { size: 12, weight: "bold", lines: 2 });
-    txt(t, k.time, { size: 11, weight: "semibold", color: C.accent });
+    txt(t, k.prep ? `prépa ${k.prep}` : k.time, { size: 11, weight: "semibold", color: C.accent });
     w.addSpacer();
     if (k.location) txt(w, `📍 ${k.location}`, { size: 10, color: C.muted });
     if (k.info) txt(w, k.info.replace(/ — /g, " · "), { size: 8.5, color: C.muted, lines: 2 });
@@ -694,7 +694,7 @@ function wKholles(d, family) {
     bar(r, x.color, family === "medium" ? 30 : 40);
     const t = col(r, 1);
     txt(t, x.short, { size: 12, weight: "bold" });
-    txt(t, `${x.dayLabel} · ${x.time}${x.location ? ` · ${x.location}` : ""}${x.teacher ? ` · ${x.teacher}` : ""}`, { size: 9.5, color: C.muted });
+    txt(t, `${x.dayLabel} · ${x.prep ? `prépa ${x.prep}` : x.time}${x.location ? ` · ${x.location}` : ""}${x.teacher ? ` · ${x.teacher}` : ""}`, { size: 9.5, color: C.muted });
     if (family !== "medium" && x.info) txt(t, x.info, { size: 9, color: C.muted, lines: 1 });
     r.addSpacer();
     const s = col(r, 1);

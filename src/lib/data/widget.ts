@@ -5,6 +5,7 @@ import { examCards, loadDashboard } from "@/lib/data/dashboard";
 import { loadDs, loadKholles } from "@/lib/data/exams";
 import { loadItemsBetween, realMinutes } from "@/lib/data/work";
 import { formatCountdown } from "@/lib/domain/countdown";
+import { parseKholleInfo } from "@/lib/domain/kholle";
 import { addDays, dateKey, diffDays, mondayOf, parisDateTime, timeKey, weekdayOf } from "@/lib/domain/time";
 import type { CalendarEvent, Homework, Note, StudySession, SessionItem } from "@/lib/types";
 
@@ -212,6 +213,7 @@ export async function getWidgetData(db: SupabaseClient, ctx: UserContext, opts: 
         ...exam(c),
         teacher: k?.teacher ?? null,
         info: k?.event.description ?? null,
+        prep: parseKholleInfo(k?.event.description).prep?.replace(":", "h") ?? null,
         questions: qs.length,
         questionsToReview: qs.filter((q) => q.status === "a_revoir").length,
       };

@@ -3,6 +3,7 @@ import { requireUser } from "@/lib/data/auth";
 import { loadKholles } from "@/lib/data/exams";
 import { examCards } from "@/lib/data/dashboard";
 import { formatCountdown } from "@/lib/domain/countdown";
+import { parseKholleInfo } from "@/lib/domain/kholle";
 import { cn, formatDayShort, formatMinutes, formatTime } from "@/lib/format";
 import { PageHeader, SubjectDot } from "@/components/ui/misc";
 
@@ -32,6 +33,7 @@ export default async function KhollesPage() {
                   <p className="text-xs text-muted truncate">
                     {formatDayShort(k.event.start_at)} · {formatTime(k.event.start_at)}
                     {k.event.location ? ` · ${k.event.location}` : ""}
+                    {parseKholleInfo(k.event.description).prep ? ` · prépa ${parseKholleInfo(k.event.description).prep!.replace(":", "h")}` : ""}
                   </p>
                 </div>
                 <span className="text-sm font-medium">{formatCountdown(cards[i].countdown)}</span>

@@ -267,7 +267,7 @@ function NotificationsCard({ prefs, vapidPublicKey }: { prefs: Settings["notific
   const [pending, start] = useTransition();
   const items: [keyof typeof state, string][] = [
     ["bilan", "Rappel de bilan à 22h00 (session du soir sans bilan)"],
-    ["kholle", "Veille de khôlle à 19h00"],
+    ["kholle", "Khôlles : la veille à 19h00 et 30 min avant la préparation"],
     ["homework", "Devoirs dus demain (18h00)"],
     ["sunday", "Dimanche 20h00 : revue de la semaine"],
   ];
