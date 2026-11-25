@@ -1,4 +1,5 @@
 "use client";
+import { friendlyError } from "@/lib/errors";
 
 import { useState, useTransition } from "react";
 import { Check, Plus } from "lucide-react";
@@ -65,7 +66,7 @@ function Row({ r }: { r: ReviewRow }) {
               await planReviewSoon(r.itemId);
               setDone(true);
             } catch (e) {
-              setError(e instanceof Error ? e.message : "Erreur");
+              setError(friendlyError(e));
             }
           })
         }

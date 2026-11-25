@@ -1,4 +1,5 @@
 "use client";
+import { friendlyError } from "@/lib/errors";
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -297,7 +298,7 @@ function NotificationsCard({ prefs, vapidPublicKey }: { prefs: Settings["notific
       await savePushSubscription(json, navigator.userAgent);
       setMsg("Notifications activées sur cet appareil.");
     } catch (e) {
-      setMsg(e instanceof Error ? e.message : "Erreur");
+      setMsg(friendlyError(e));
     }
   }
 

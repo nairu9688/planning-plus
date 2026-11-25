@@ -1,6 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { addDays, parisDateTime, type DateKey } from "@/lib/domain/time";
+import { homeworkBadges } from "@/lib/domain/homework-badges";
 import type { UserContext } from "@/lib/data/context";
 import type { CalendarEvent, StudySession } from "@/lib/types";
 
@@ -48,13 +49,22 @@ export async function loadGrid(db: SupabaseClient, ctx: UserContext, from: DateK
       .gte("date", from)
       .lt("date", to)
       .neq("status", "ignoree"),
-    db.from("homework").select("subject_id").eq("user_id", ctx.userId).neq("status", "fait"),
+    db
+      .from("homework")
+      .select("subject_id, due_at, related_event_id")
+      .eq("user_id", ctx.userId)
+      .neq("status", "fait")
+      .gte("due_at", parisDateTime(from).toISOString())
+      .lt("due_at", parisDateTime(to).toISOString()),
     db.from("ds").select("id, calendar_event_id").eq("user_id", ctx.userId),
     db.from("kholles").select("id, calendar_event_id").eq("user_id", ctx.userId),
   ]);
 
-  const openBySubject = new Map<string, number>();
-  for (const h of hw ?? []) if (h.subject_id) openBySubject.set(h.subject_id, (openBySubject.get(h.subject_id) ?? 0) + 1);
+  // Un devoir ne s'affiche que sur le cours où il est à rendre (pas sur tous les cours de la matière).
+  const badges = homeworkBadges(
+    (hw ?? []).map((h) => ({ subjectId: h.subject_id, dueAt: h.due_at, relatedEventId: h.related_event_id })),
+    ((events ?? []) as CalendarEvent[]).map((e) => ({ id: e.id, subjectId: e.subject_id, kind: e.kind, start: e.start_at })),
+  );
   const dsByEvent = new Map((ds ?? []).map((d) => [d.calendar_event_id, d.id]));
   const khByEvent = new Map((kh ?? []).map((k) => [k.calendar_event_id, k.id]));
   const now = Date.now();
@@ -76,7 +86,7 @@ export async function loadGrid(db: SupabaseClient, ctx: UserContext, from: DateK
       subjectId: e.subject_id,
       subjectName: s?.name ?? null,
       href,
-      badge: e.kind === "cours" && e.subject_id && new Date(e.end_at).getTime() > now ? (openBySubject.get(e.subject_id) ?? 0) : 0,
+      badge: new Date(e.end_at).getTime() > now ? (badges.get(e.id) ?? 0) : 0,
     };
   });
 

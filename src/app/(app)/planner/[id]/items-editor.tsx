@@ -1,4 +1,5 @@
 "use client";
+import { friendlyError } from "@/lib/errors";
 
 import { useMemo, useState, useTransition } from "react";
 import { GripVertical, Plus, Trash2 } from "lucide-react";
@@ -159,7 +160,7 @@ export function AddItemForm({
         setSubjectItemId("");
         onAdded?.();
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Erreur");
+        setError(friendlyError(err));
       }
     });
   }

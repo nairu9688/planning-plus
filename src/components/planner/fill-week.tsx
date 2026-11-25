@@ -1,4 +1,5 @@
 "use client";
+import { friendlyError } from "@/lib/errors";
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -33,7 +34,7 @@ export function FillWeekButton({ className, label = "Remplis ma semaine" }: { cl
         setProposal(p);
         setChecked(new Set(p.rows.map(id)));
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Erreur");
+        setError(friendlyError(e));
       }
     });
   };
@@ -119,7 +120,7 @@ export function FillWeekButton({ className, label = "Remplis ma semaine" }: { cl
                         setResult(res.added);
                         router.refresh();
                       } catch (e) {
-                        setError(e instanceof Error ? e.message : "Erreur");
+                        setError(friendlyError(e));
                       }
                     })
                   }

@@ -1,4 +1,5 @@
 "use client";
+import { friendlyError } from "@/lib/errors";
 
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -30,7 +31,7 @@ export function FreeFocusForm({ subjects, onDone }: { subjects: Subject[]; onDon
         router.refresh();
         onDone();
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Erreur");
+        setError(friendlyError(e));
       }
     });
 

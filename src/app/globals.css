@@ -124,6 +124,15 @@ body {
   textarea.input {
     @apply h-auto py-2 min-h-20;
   }
+  /* iOS : un champ date/heure vide garde une largeur propre et déborde de la grille. */
+  input[type="date"].input,
+  input[type="time"].input {
+    @apply block min-w-0 max-w-full appearance-none text-left;
+  }
+  input[type="date"].input::-webkit-date-and-time-value,
+  input[type="time"].input::-webkit-date-and-time-value {
+    text-align: left;
+  }
   .label {
     @apply block text-xs font-medium text-muted mb-1;
   }

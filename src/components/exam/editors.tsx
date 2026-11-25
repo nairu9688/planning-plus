@@ -1,4 +1,5 @@
 "use client";
+import { friendlyError } from "@/lib/errors";
 
 import { useState, useTransition } from "react";
 import { Check, ExternalLink, Plus, Trash2 } from "lucide-react";
@@ -163,7 +164,7 @@ export function LinksEditor({ targetType, targetId, links }: { targetType: strin
               setUrl("");
               setLabel("");
             } catch (err) {
-              setError(err instanceof Error ? err.message : "Erreur");
+              setError(friendlyError(err));
             }
           });
         }}

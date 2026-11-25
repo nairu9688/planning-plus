@@ -1,4 +1,5 @@
 "use client";
+import { friendlyError } from "@/lib/errors";
 
 import { createContext, useCallback, useContext, useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -120,7 +121,7 @@ function SessionQuickForm({ detail, onDone }: { detail: QuickAddDetail; onDone: 
             onDone();
             router.push(`/planner/${id}`);
           } catch (err) {
-            setError(err instanceof Error ? err.message : "Erreur");
+            setError(friendlyError(err));
           }
         });
       }}
@@ -213,7 +214,7 @@ function LinkQuickForm({ onDone }: { onDone: () => void }) {
             await createLink({ url, label, targetType: "global" });
             onDone();
           } catch (err) {
-            setError(err instanceof Error ? err.message : "Erreur");
+            setError(friendlyError(err));
           }
         });
       }}

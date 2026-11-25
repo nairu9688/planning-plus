@@ -1,4 +1,5 @@
 "use client";
+import { friendlyError } from "@/lib/errors";
 
 import { useState, useTransition } from "react";
 import { createHomework, deleteHomework, updateHomework } from "@/app/actions/homework";
@@ -25,6 +26,10 @@ export function HomeworkForm({ subjects, draft, onDone }: { subjects: Subject[];
   function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    if (!d.title?.trim()) {
+      setError("Donne un titre au devoir (le texte grisé n'est qu'un exemple).");
+      return;
+    }
     start(async () => {
       try {
         const input = {
@@ -41,7 +46,7 @@ export function HomeworkForm({ subjects, draft, onDone }: { subjects: Subject[];
         else await createHomework(input);
         onDone();
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Erreur");
+        setError(friendlyError(err));
       }
     });
   }
@@ -50,7 +55,7 @@ export function HomeworkForm({ subjects, draft, onDone }: { subjects: Subject[];
     <form onSubmit={submit} className="space-y-3">
       <div>
         <label className="label" htmlFor="hw-title">Titre</label>
-        <input id="hw-title" autoFocus className="input" value={d.title ?? ""} onChange={(e) => set({ title: e.target.value })} placeholder="Exercices 12 à 15 p. 84" />
+        <input id="hw-title" autoFocus required className="input" value={d.title ?? ""} onChange={(e) => set({ title: e.target.value })} placeholder="Exercices 12 à 15 p. 84" />
       </div>
       <div>
         <span className="label">Matière</span>
@@ -72,7 +77,7 @@ export function HomeworkForm({ subjects, draft, onDone }: { subjects: Subject[];
           ))}
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-3 [&>*]:min-w-0">
         <div>
           <label className="label" htmlFor="hw-due">Échéance</label>
           <input id="hw-due" type="date" className="input" value={d.dueDate ?? ""} onChange={(e) => set({ dueDate: e.target.value })} />

@@ -1,4 +1,5 @@
 "use client";
+import { friendlyError } from "@/lib/errors";
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -61,7 +62,7 @@ export function SessionSettings({
                 setOpen(false);
                 router.refresh();
               } catch (err) {
-                setError(err instanceof Error ? err.message : "Erreur");
+                setError(friendlyError(err));
               }
             });
           }}

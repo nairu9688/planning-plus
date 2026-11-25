@@ -220,7 +220,7 @@ function EventBlock({ e, style, onClick }: { e: GridEvent; style: React.CSSPrope
         {e.location ? ` · ${e.location}` : ""}
       </div>
       {e.badge > 0 && (
-        <span className="absolute top-0.5 right-0.5 min-w-4 h-4 rounded-full bg-danger text-white text-[10px] font-semibold grid place-items-center px-1" title={`${e.badge} devoir(s) non fait(s)`}>
+        <span className="absolute top-0.5 right-0.5 min-w-4 h-4 rounded-full bg-danger text-white text-[10px] font-semibold grid place-items-center px-1" title={`${e.badge} devoir(s) à rendre à ce cours`}>
           {e.badge}
         </span>
       )}
