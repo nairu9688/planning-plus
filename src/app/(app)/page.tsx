@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { AlertTriangle, Plus } from "lucide-react";
+import { AlertTriangle, Plus, Timer } from "lucide-react";
 import { requireUser } from "@/lib/data/auth";
 import { loadDashboard } from "@/lib/data/dashboard";
 import { loadGrid } from "@/lib/data/week";
@@ -67,6 +67,9 @@ export default async function DashboardPage() {
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
           <SyncButton lastSync={ctx.settings.last_sync_at} error={ctx.settings.last_sync_error} />
+          <QuickAddButton className="btn btn-outline" detail={{ type: "focus" }} title="Focus libre : chrono sur n'importe quelle matière (F)">
+            <Timer className="size-4" /> <span className="hidden sm:inline">Focus libre</span>
+          </QuickAddButton>
           <PaletteTrigger className="w-9 px-0 sm:w-auto sm:px-3.5" />
           <QuickAddButton className="btn btn-primary hidden md:inline-flex">
             <Plus className="size-4" /> Nouveau

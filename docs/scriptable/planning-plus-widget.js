@@ -1093,13 +1093,13 @@ function wActions(d, family) {
   w.addSpacer(8);
   const buttons = [
     ["Devoir", "plus.circle.fill", act("newhw")],
+    ["Focus libre", "timer", act("focus")],
     ["Post-it", "note.text.badge.plus", act("newnote")],
     d.tonight ? [d.tonight.mode === "maison" ? "→ Étude" : "→ Maison", "arrow.left.arrow.right", act("mode", { id: d.tonight.id })] : ["Session", "calendar.badge.plus", app("/?nouveau=session")],
     d.tonight ? ["Focus", "play.circle.fill", app(`/planner/${d.tonight.id}/focus`)] : ["Planner", "timer", app("/planner")],
     d.tonight ? ["Bilan", "checklist", app(`/planner/${d.tonight.id}/bilan?force=1`)] : ["Devoirs", "checklist", app("/devoirs")],
     ["Synchro", "arrow.triangle.2.circlepath", act("sync")],
     ["Calendrier", "calendar", app("/calendrier")],
-    ["Revue", "list.clipboard.fill", app("/revue")],
   ];
   const n = family === "small" ? 4 : family === "medium" ? 4 : 8;
   const perRow = family === "small" ? 2 : 4;
@@ -1237,6 +1237,47 @@ async function runAction(q) {
         if (!title) return;
         await api("/api/v1/homework", "POST", { title, subject: fieldOf(a, 1) || null, dueDate: fieldOf(a, 2) || null });
         await notify("Devoir ajouté", title);
+        break;
+      }
+      case "focus": {
+        // Focus libre : arrête le chrono s'il tourne, sinon matière → chrono ou minutes déjà faites.
+        const st = await api("/api/v1/focus");
+        if (st.running) {
+          const r = await api("/api/v1/focus/stop", "POST");
+          await notify("Chrono arrêté", r.text);
+          break;
+        }
+        const m = new Alert();
+        m.title = "Focus libre";
+        m.message = "Quelle matière ?";
+        for (const n of st.subjectNames) m.addAction(n);
+        m.addAction("Sans matière");
+        m.addCancelAction("Annuler");
+        const k = await m.presentSheet();
+        if (k === -1) return;
+        const subject = k < st.subjects.length ? st.subjects[k].key : null;
+        const how = new Alert();
+        how.title = k < st.subjects.length ? st.subjectNames[k] : "Focus libre";
+        how.addTextField("Quoi (Anki, fiche…) — facultatif");
+        how.addTextField("Minutes déjà faites (sinon chrono)");
+        how.addAction("▶ Démarrer le chrono");
+        how.addAction("+ Ajouter les minutes");
+        how.addCancelAction("Annuler");
+        const choice = await how.presentAlert();
+        if (choice === -1) return;
+        const description = fieldOf(how, 0) || null;
+        if (choice === 1) {
+          const minutes = Number(fieldOf(how, 1).replace(/[^0-9]/g, ""));
+          if (!minutes) {
+            await notify("Planning+", "Indique un nombre de minutes.");
+            return;
+          }
+          const r = await api("/api/v1/focus/log", "POST", { subject, minutes, description });
+          await notify("Travail ajouté ✓", r.text);
+        } else {
+          const r = await api("/api/v1/focus/start", "POST", { subject, description });
+          await notify("Chrono lancé ⏱", r.text);
+        }
         break;
       }
       case "newnote": {

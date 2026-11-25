@@ -7,6 +7,7 @@ import { requireUser } from "@/lib/data/auth";
 import { loadUpcomingExams } from "@/lib/data/exams";
 import { parisDateTime } from "@/lib/domain/time";
 import { ensureReview } from "@/lib/data/review";
+import { stopAnyFocus } from "@/lib/focus";
 import { maisonToggle, type SessionKind } from "@/lib/domain/sessions";
 import { resolveTarget, type TargetChoice } from "@/lib/domain/targets";
 import type { SubjectKey } from "@/lib/domain/subjects";
@@ -330,8 +331,9 @@ export async function validateReview(sessionId: string, comment?: string) {
 // Focus
 // ---------------------------------------------------------------------------
 export async function startFocus(sessionItemId: string) {
-  const { supabase, user } = await requireUser();
-  await supabase.from("focus_logs").update({ ended_at: new Date().toISOString() }).eq("user_id", user.id).is("ended_at", null);
+  const { supabase, user, ctx } = await requireUser();
+  // Un seul chrono à la fois : arrête aussi un éventuel Focus libre (et compte ses minutes).
+  await stopAnyFocus(supabase, ctx);
   const { data, error } = await supabase
     .from("focus_logs")
     .insert({ user_id: user.id, session_item_id: sessionItemId })
@@ -342,7 +344,7 @@ export async function startFocus(sessionItemId: string) {
 }
 
 export async function stopFocus() {
-  const { supabase, user } = await requireUser();
-  await supabase.from("focus_logs").update({ ended_at: new Date().toISOString() }).eq("user_id", user.id).is("ended_at", null);
+  const { supabase, ctx } = await requireUser();
+  await stopAnyFocus(supabase, ctx);
   revalidatePath("/planner", "layout");
 }

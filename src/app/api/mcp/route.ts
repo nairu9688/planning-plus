@@ -15,6 +15,8 @@ import {
   updateHomeworkFor,
 } from "@/lib/services";
 import { addDays, dateKey } from "@/lib/domain/time";
+import { findSubjectId, logWork, startFreeFocus, stopAnyFocus } from "@/lib/focus";
+import { getBrief } from "@/lib/data/brief";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -185,6 +187,33 @@ const TOOLS: Tool[] = [
     inputSchema: { type: "object", properties: { content: { type: "string" }, color: { type: "string", enum: ["yellow", "blue", "green", "pink", "purple"] }, dueDate: { type: "string" } }, required: ["content"] },
     write: true,
     run: (a, { db, ctx }) => createNoteFor(db, ctx, a as never),
+  },
+  {
+    name: "start_focus",
+    description: "Démarre un chrono (Focus libre) sur une matière, éventuellement avec une description (« Anki », « fiche ch. 3 »). S'ajoute à la session en cours, sinon crée une session libre.",
+    inputSchema: { type: "object", properties: { subject: { type: "string" }, description: { type: "string" } } },
+    write: true,
+    run: (a, { db, ctx }) => startFreeFocus(db, ctx, { subjectId: findSubjectId(ctx, a.subject as string), description: (a.description as string) ?? null }),
+  },
+  {
+    name: "stop_focus",
+    description: "Arrête le chrono en cours et ajoute les minutes au travail réel.",
+    inputSchema: { type: "object", properties: {} },
+    write: true,
+    run: (_a, { db, ctx }) => stopAnyFocus(db, ctx),
+  },
+  {
+    name: "log_work",
+    description: "Ajoute du travail déjà fait sans chrono (ex. 20 min de droit sur Anki). Compte tout de suite dans les stats et les objectifs.",
+    inputSchema: { type: "object", properties: { subject: { type: "string" }, minutes: { type: "number" }, description: { type: "string" } }, required: ["minutes"] },
+    write: true,
+    run: (a, { db, ctx }) => logWork(db, ctx, { subjectId: findSubjectId(ctx, a.subject as string), minutes: Number(a.minutes), description: (a.description as string) ?? null }),
+  },
+  {
+    name: "day_brief",
+    description: "Résumé parlé d'une journée (aujourd'hui ou demain) : cours, khôlles avec préparation, devoirs à rendre, session, prochain DS.",
+    inputSchema: { type: "object", properties: { day: { type: "string", enum: ["today", "tomorrow"] } } },
+    run: (a, { db, ctx }) => getBrief(db, ctx, a.day === "today" ? "today" : "tomorrow"),
   },
   {
     name: "ds_preparation",

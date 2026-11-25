@@ -3,6 +3,8 @@ import { QuickAddProvider } from "@/components/shell/quick-add";
 import { BottomTabs, Sidebar } from "@/components/shell/nav";
 import { CommandPalette, type SearchEntry } from "@/components/shell/command-palette";
 import { AutoSync } from "@/components/shell/auto-sync";
+import { FocusPill } from "@/components/focus/free-focus";
+import { getFocusStatus } from "@/lib/focus";
 import { NavigationProgress } from "@/components/shell/navigation-progress";
 import { Suspense } from "react";
 import { loadDs, loadKholles } from "@/lib/data/exams";
@@ -15,7 +17,8 @@ export const maxDuration = 60;
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const { supabase, user, ctx } = await requireUser();
   const from = new Date(Date.now() - 30 * 86_400_000);
-  const [ds, kholles, { data: homework }] = await Promise.all([
+  const [focus, ds, kholles, { data: homework }] = await Promise.all([
+    getFocusStatus(supabase, ctx),
     loadDs(supabase, user.id, { from }),
     loadKholles(supabase, user.id, { from }),
     supabase.from("homework").select("id, title, subject_id, due_at").eq("user_id", user.id).neq("status", "fait").limit(200),
@@ -37,6 +40,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <BottomTabs />
       <CommandPalette entries={entries} />
       <AutoSync />
+      <FocusPill status={focus} />
       <Suspense>
         <NavigationProgress />
       </Suspense>

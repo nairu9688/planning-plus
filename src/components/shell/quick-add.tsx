@@ -2,7 +2,8 @@
 
 import { createContext, useCallback, useContext, useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { BookOpen, CalendarClock, Link2, StickyNote } from "lucide-react";
+import { BookOpen, CalendarClock, Link2, StickyNote, Timer } from "lucide-react";
+import { FreeFocusForm } from "@/components/focus/free-focus";
 import { Sheet } from "@/components/ui/sheet";
 import { HomeworkForm, type HomeworkDraft } from "@/components/forms/homework-form";
 import { createLink, createNote } from "@/app/actions/misc";
@@ -10,7 +11,7 @@ import { createSession } from "@/app/actions/sessions";
 import { cn } from "@/lib/format";
 import type { Subject } from "@/lib/types";
 
-export type QuickAddType = "devoir" | "session" | "postit" | "lien";
+export type QuickAddType = "devoir" | "focus" | "session" | "postit" | "lien";
 export interface QuickAddDetail {
   type?: QuickAddType;
   date?: string;
@@ -30,6 +31,7 @@ export function openQuickAdd(detail: QuickAddDetail) {
 
 const TABS: { type: QuickAddType; label: string; icon: React.ElementType }[] = [
   { type: "devoir", label: "Devoir", icon: BookOpen },
+  { type: "focus", label: "Focus", icon: Timer },
   { type: "session", label: "Session", icon: CalendarClock },
   { type: "postit", label: "Post-it", icon: StickyNote },
   { type: "lien", label: "Lien", icon: Link2 },
@@ -62,7 +64,7 @@ export function QuickAddProvider({ subjects, children }: { subjects: Subject[]; 
       {children}
       <Sheet open={!!detail} onClose={close} title={isEdit ? "Modifier le devoir" : "Nouveau"}>
         {!isEdit && (
-          <div className="grid grid-cols-4 gap-1 p-1 rounded-xl bg-surface-2 mb-4">
+          <div className="grid grid-cols-5 gap-1 p-1 rounded-xl bg-surface-2 mb-4">
             {TABS.map((t) => (
               <button
                 key={t.type}
@@ -83,6 +85,7 @@ export function QuickAddProvider({ subjects, children }: { subjects: Subject[]; 
             onDone={close}
           />
         )}
+        {detail && type === "focus" && <FreeFocusForm subjects={subjects} onDone={close} />}
         {detail && type === "session" && <SessionQuickForm detail={detail} onDone={close} />}
         {detail && type === "postit" && <NoteQuickForm onDone={close} date={detail.date} />}
         {detail && type === "lien" && <LinkQuickForm onDone={close} />}

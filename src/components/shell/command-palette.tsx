@@ -35,9 +35,14 @@ export function CommandPalette({ entries }: { entries: SearchEntry[] }) {
         setOpen((o) => !o);
       }
       const tag = (e.target as HTMLElement)?.tagName;
-      if (!open && e.key.toLowerCase() === "n" && !e.metaKey && !e.ctrlKey && !["INPUT", "TEXTAREA", "SELECT"].includes(tag)) {
-        e.preventDefault();
-        openQuickAdd({ type: "devoir" });
+      if (!open && !e.metaKey && !e.ctrlKey && !["INPUT", "TEXTAREA", "SELECT"].includes(tag)) {
+        if (e.key.toLowerCase() === "n") {
+          e.preventDefault();
+          openQuickAdd({ type: "devoir" });
+        } else if (e.key.toLowerCase() === "f") {
+          e.preventDefault();
+          openQuickAdd({ type: "focus" });
+        }
       }
     };
     const onOpen = () => setOpen(true);
@@ -62,12 +67,13 @@ export function CommandPalette({ entries }: { entries: SearchEntry[] }) {
       setOpen(false);
       router.push(href);
     };
-    const add = (type: "devoir" | "session" | "postit" | "lien") => () => {
+    const add = (type: "devoir" | "focus" | "session" | "postit" | "lien") => () => {
       setOpen(false);
       openQuickAdd({ type });
     };
     const base: Item[] = [
       { label: "Nouveau devoir", hint: "N", run: add("devoir") },
+      { label: "Focus libre (chrono ou minutes faites)", hint: "F", run: add("focus") },
       { label: "Nouvelle session", run: add("session") },
       { label: "Nouveau post-it", run: add("postit") },
       { label: "Nouveau lien", run: add("lien") },
