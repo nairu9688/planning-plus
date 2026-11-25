@@ -414,40 +414,150 @@ const nowMinutes = () => {
 // ── Widgets ─────────────────────────────────────────────────────────────────
 function examTile(parent, e, { label, size = 58, showGauge = true } = {}) {
   const s = row(parent, 8);
-  const days = Math.max(0, e.daysLeft);
-  s.addImage(ring({ size, pct: e.gauge ?? 0, color: hex(e.color || "#7C9CE0"), big: days, small: days > 1 ? "jours" : "jour" }));
+  const ev = e.countdown ? e.countdown.evenings : Math.max(0, e.daysLeft);
+  s.addImage(ring({ size, pct: e.gauge ?? 0, color: hex(e.color || "#7C9CE0"), big: ev, small: ev > 1 ? "soirs" : "soir" }));
   const t = col(s, 1);
   if (label) txt(t, label.toUpperCase(), { size: 8.5, weight: "heavy", color: C.muted });
   txt(t, e.short, { size: 12.5, weight: "bold", lines: 2 });
   txt(t, `${e.dayLabel} · ${e.time}`, { size: 10, color: C.muted });
-  txt(t, e.countdownText, { size: 11, weight: "semibold", color: C.accent, rounded: true });
+  txt(t, e.countdown ? `${e.countdown.weekends} WE${e.countdown.holidayDays ? ` · ${e.countdown.holidayDays} j vac.` : ""}` : e.countdownText, { size: 10.5, weight: "semibold", color: C.accent, rounded: true });
   if (showGauge && e.gauge !== null && e.gauge !== undefined) txt(t, `Prépa ${Math.round(e.gauge * 100)} %`, { size: 9, weight: "semibold", color: pctColor(e.gauge) });
   return s;
 }
 
-function tonightBlock(parent, t, { buttons = true, maxItems = 3 } = {}) {
-  const c = card(parent, { url: app(`/planner/${t.id}`), bg: C.card2 });
+/** Petite tuile à anneau (C1) pour les rangées compactes. */
+function ringTile(parent, { pct, color, big, small, label, title, url, size = 46 }) {
+  const c = card(parent, { pad: 7, url });
+  const r = row(c, 6);
+  r.addImage(ring({ size, pct: pct ?? 0, color: hex(color || "#7C9CE0"), big, small, width: 5 }));
+  const t = col(r, 0);
+  txt(t, label.toUpperCase(), { size: 7.5, weight: "heavy", color: C.muted });
+  txt(t, title, { size: 10.5, weight: "bold", lines: 2 });
+  return c;
+}
+
+/** Barre de remplissage segmentée par matière (C2), dessinée. */
+function segmentBar(items, slot, { w = 300, h = 10, track = new Color("#FFFFFF", 0.16) } = {}) {
+  const c = ctx(w, h);
+  const p0 = new Path();
+  p0.addRoundedRect(new Rect(0, 0, w, h), h / 2, h / 2);
+  c.addPath(p0);
+  c.setFillColor(track);
+  c.fillPath();
+  const total = Math.max(slot, items.reduce((a, i) => a + i.minutes, 0)) || 1;
+  let x = 0;
+  for (const i of items) {
+    const iw = (w * i.minutes) / total;
+    c.setFillColor(new Color(i.color || "#9FB8F0", i.done ? 0.4 : 1));
+    c.fillRect(new Rect(x, 0, Math.max(0, iw - 1.5), h));
+    x += iw;
+  }
+  return c.getImage();
+}
+
+/** Bande de la journée avec la ligne « maintenant » (EDT en temps réel). */
+function dayStrip(day, { w = 300, h = 22, nowMin }) {
+  const c = ctx(w, h + 10);
+  const all = [...day.events, ...day.sessions];
+  const start = Math.min(8 * 60, ...all.map((e) => e.startMin));
+  const end = Math.max(22 * 60, ...all.map((e) => e.endMin));
+  const x = (m) => ((m - start) / (end - start)) * w;
+  const bg = new Path();
+  bg.addRoundedRect(new Rect(0, 0, w, h), 6, 6);
+  c.addPath(bg);
+  c.setFillColor(new Color(DARK ? "#1C2436" : "#EEF1F7"));
+  c.fillPath();
+  for (const s of day.sessions) {
+    const p = new Path();
+    p.addRoundedRect(new Rect(x(s.startMin), 3, Math.max(3, x(s.endMin) - x(s.startMin)), h - 6), 3, 3);
+    c.addPath(p);
+    c.setFillColor(new Color(DARK ? "#7C9CE0" : "#1B2A4A", 0.3));
+    c.fillPath();
+  }
+  for (const e of day.events) {
+    const past = e.endMin <= nowMin;
+    const p = new Path();
+    p.addRoundedRect(new Rect(x(e.startMin), 3, Math.max(3, x(e.endMin) - x(e.startMin) - 1), h - 6), 3, 3);
+    c.addPath(p);
+    c.setFillColor(new Color(e.color || "#8A93A6", past ? 0.35 : 0.85));
+    c.fillPath();
+  }
+  if (nowMin > start && nowMin < end) {
+    c.setFillColor(new Color("#D93025"));
+    c.fillRect(new Rect(x(nowMin) - 1, 0, 2, h));
+  }
+  c.setFont(Font.mediumSystemFont(7));
+  c.setTextColor(new Color(DARK ? "#95A0B8" : "#667089"));
+  for (let k = 0; k <= 4; k++) {
+    const m = start + ((end - start) * k) / 4;
+    c.setTextAlignedLeft();
+    c.drawTextInRect(`${Math.floor(m / 60)}h`, new Rect(Math.min(w - 16, x(m)), h + 1, 18, 9));
+  }
+  return c.getImage();
+}
+
+/** Maintenant / ensuite en une ligne compacte (grand tableau de bord). */
+function nowNext(parent, d) {
+  const r = row(parent, 8);
+  const block = (b, label) => {
+    const c = card(r, { pad: 7, bg: C.card2 });
+    const h = row(c, 4);
+    txt(h, label, { size: 8, weight: "heavy", color: C.muted });
+    h.addSpacer();
+    const dt = h.addDate(new Date(label === "MAINTENANT" ? b.end : b.start));
+    dt.applyTimerStyle();
+    dt.font = Font.boldRoundedSystemFont(8.5);
+    dt.textColor = label === "MAINTENANT" ? C.danger : C.accent;
+    const t = row(c, 4);
+    bar(t, b.color || "#1B2A4A", 14);
+    txt(t, b.short, { size: 10.5, weight: b.kind === "ds" || b.kind === "kholle" ? "heavy" : "semibold" });
+  };
+  if (d.current) block(d.current, "MAINTENANT");
+  if (d.next) block(d.next, "ENSUITE");
+  if (!d.current && !d.next) {
+    const c = card(r, { pad: 7, bg: C.card2 });
+    txt(c, "Plus de cours aujourd'hui", { size: 10.5, weight: "semibold" });
+  }
+}
+
+/** « Ce soir » en grand (direction A) : fond bleu marine, barre par matière, boutons. */
+function tonightBlock(parent, t, { buttons = true, maxItems = 3, width = 300 } = {}) {
+  const c = parent.addStack();
+  c.layoutVertically();
+  c.setPadding(10, 11, 10, 11);
+  c.cornerRadius = 16;
+  const g = new LinearGradient();
+  g.colors = [new Color(DARK ? "#1D2C52" : "#1B2A4A"), new Color(DARK ? "#2B4170" : "#2C4478")];
+  g.locations = [0, 1];
+  g.startPoint = new Point(0, 0);
+  g.endPoint = new Point(1, 1);
+  c.backgroundGradient = g;
+  c.url = app(`/planner/${t.id}`);
+  const white = Color.white();
+  const soft = new Color("#FFFFFF", 0.72);
   const h = row(c, 5);
-  symbol(h, t.mode === "maison" ? "house.fill" : "books.vertical.fill", 11);
-  txt(h, `Ce soir · ${t.mode === "maison" ? "maison" : "étude"} ${t.startLabel}–${t.endLabel}`, { size: 10.5, weight: "bold", color: C.accent });
+  symbol(h, t.mode === "maison" ? "house.fill" : "moon.stars.fill", 10, soft);
+  txt(h, `CE SOIR · ${t.mode === "maison" ? "MAISON" : "ÉTUDE"} ${t.startLabel}–${t.endLabel}`, { size: 9, weight: "heavy", color: soft });
   h.addSpacer();
-  txt(h, `${fmtMin(t.plannedMinutes)}/${fmtMin(t.slotMinutes)}`, { size: 9.5, weight: "semibold", color: C.muted });
-  c.addSpacer(4);
-  if (!t.items.length) txt(c, "Rien de prévu — touche pour remplir", { size: 11, color: C.muted });
+  txt(h, t.status === "bilan_fait" ? "bilan fait ✓" : `${fmtMin(t.plannedMinutes)}/${fmtMin(t.slotMinutes)}`, { size: 9, weight: "semibold", color: soft });
+  c.addSpacer(5);
+  c.addImage(segmentBar(t.items, t.slotMinutes, { w: width, h: 9 }));
+  c.addSpacer(5);
+  if (!t.items.length) txt(c, "Rien de prévu · touche pour remplir", { size: 11, color: soft });
   for (const i of t.items.slice(0, maxItems)) {
     const r = row(c, 5);
-    dot(r, i.color, 6);
-    txt(r, i.label, { size: 11, color: i.done ? C.muted : C.text });
+    dot(r, i.color || "#9FB8F0", 6);
+    txt(r, i.label, { size: 11, color: i.done ? soft : white });
     r.addSpacer();
-    txt(r, fmtMin(i.minutes), { size: 9.5, color: C.muted });
+    txt(r, fmtMin(i.minutes), { size: 9.5, color: soft });
   }
-  if (t.items.length > maxItems) txt(c, `+ ${t.items.length - maxItems} autre(s)`, { size: 9.5, color: C.muted });
+  if (t.items.length > maxItems) txt(c, `+ ${t.items.length - maxItems} autre(s)`, { size: 9.5, color: soft });
   if (buttons) {
-    c.addSpacer(6);
+    c.addSpacer(7);
     const b = row(c, 5);
-    pill(b, t.mode === "maison" ? "Étude" : "Maison", { url: act("mode", { id: t.id }), icon: "arrow.left.arrow.right", size: 10, bg: C.accent });
-    pill(b, "Focus", { url: app(`/planner/${t.id}/focus`), icon: "play.fill", size: 10, bg: C.card, fg: C.accent });
-    pill(b, "Bilan", { url: app(`/planner/${t.id}/bilan${t.ended ? "" : "?force=1"}`), icon: "checklist", size: 10, bg: C.card, fg: C.accent });
+    if (t.ended && t.status !== "bilan_fait") pill(b, "Bilan", { url: app(`/planner/${t.id}/bilan`), icon: "checklist", size: 10, bg: white, fg: NAVY });
+    else pill(b, "Focus", { url: app(`/planner/${t.id}/focus`), icon: "play.fill", size: 10, bg: white, fg: NAVY });
+    pill(b, t.mode === "maison" ? "Étude 20h" : "Maison 21h", { url: act("mode", { id: t.id }), icon: "arrow.left.arrow.right", size: 10, bg: new Color("#FFFFFF", 0.16), fg: white });
   }
   return c;
 }
@@ -496,55 +606,40 @@ function wTableau(d, family) {
   header(w, `${d.todayLabel} · semaine ${d.week}`, { right: d.streak ? `🔥 ${d.streak} j` : undefined });
   w.addSpacer(8);
 
+  const kh = d.kholles[0];
+  const ww = d.weekWork;
+  const rings = (parent, n) => {
+    const r = row(parent, 6);
+    if (nextDs) ringTile(r, { pct: nextDs.gauge, color: nextDs.color, big: nextDs.countdown.evenings, small: "soirs", label: "DS", title: nextDs.short, url: app(`/ds/${nextDs.id}`) });
+    if (kh) ringTile(r, { pct: Math.min(1, (kh.worked7dMinutes || 0) / 120), color: kh.color, big: kh.countdown.evenings, small: "soirs", label: "Khôlle", title: kh.short.replace(/^Khôlle /, ""), url: app(`/kholles/${kh.id}`) });
+    if (n > 2 && d.cb) ringTile(r, { pct: 0, color: "#7C9CE0", big: d.cb.daysLeft, small: "jours", label: "CB", title: d.cb.name, url: app(`/ds/cb/${d.cb.id}`) });
+    if (n > 2 || !kh) ringTile(r, { pct: ww.plannedMinutes ? ww.realMinutes / ww.plannedMinutes : 0, color: "#1E8E3E", big: fmtMin(ww.realMinutes), small: "", label: "Semaine", title: `/ ${fmtMin(ww.plannedMinutes)}`, url: app("/stats") });
+  };
+
   if (family === "medium") {
-    const r = row(w, 10);
-    if (nextDs) examTile(r, nextDs, { label: "Prochain DS", size: 62 });
-    r.addSpacer();
-    const right = col(r, 4);
-    const kh = d.kholles[0];
-    if (kh) {
-      const k = card(right, { pad: 7, bg: C.card2, url: app(`/kholles/${kh.id}`) });
-      txt(k, "KHÔLLE", { size: 8, weight: "heavy", color: C.muted });
-      txt(k, kh.short, { size: 11, weight: "bold" });
-      txt(k, `${kh.dayLabel} ${kh.time}${kh.location ? ` · ${kh.location}` : ""}`, { size: 9, color: C.muted });
-    }
-    const hwc = card(right, { pad: 7, bg: C.card2, url: app("/devoirs") });
-    txt(hwc, "DEVOIRS", { size: 8, weight: "heavy", color: C.muted });
-    txt(hwc, `${d.homeworkCounts.week} cette semaine${d.homeworkCounts.overdue ? ` · ${d.homeworkCounts.overdue} en retard` : ""}`, { size: 10.5, weight: "semibold", color: d.homeworkCounts.overdue ? C.danger : C.text });
+    // Moyen : Ce soir en grand si une session existe, sinon les anneaux.
+    if (d.tonight) tonightBlock(w, d.tonight, { maxItems: 2, buttons: true, width: 300 });
+    else rings(w, 2);
     return w;
   }
 
-  // Grand / très grand : tableau de bord complet.
-  const top = row(w, 8);
-  if (nextDs) {
-    const c1 = card(top, { url: app(`/ds/${nextDs.id}`) });
-    examTile(c1, nextDs, { label: "Prochain DS", size: 56 });
+  // Grand / très grand : direction A — maintenant/ensuite, Ce soir, anneaux, À rendre.
+  nowNext(w, d);
+  w.addSpacer(4);
+  w.addImage(dayStrip(d.days[0], { w: family === "extraLarge" ? 680 : 310, h: 16, nowMin: nowMinutes() }));
+  w.addSpacer(6);
+  if (d.tonight) tonightBlock(w, d.tonight, { maxItems: family === "extraLarge" ? 5 : 2, width: family === "extraLarge" ? 660 : 290 });
+  else {
+    const c = card(w, { pad: 8, bg: C.card2, url: app("/planner") });
+    txt(c, "Pas de session ce soir · touche pour en créer une", { size: 10.5, color: C.muted });
   }
-  const side = col(top, 6);
-  if (d.cb) {
-    const c2 = card(side, { pad: 7, url: app(`/ds/cb/${d.cb.id}`) });
-    txt(c2, "🏆 " + d.cb.name, { size: 10.5, weight: "bold" });
-    txt(c2, `J-${d.cb.daysLeft} · ${d.cb.countdownText}`, { size: 9.5, color: C.accent, weight: "semibold" });
-  }
-  const kh = d.kholles[0];
-  if (kh) {
-    const c3 = card(side, { pad: 7, url: app(`/kholles/${kh.id}`) });
-    txt(c3, "Khôlle · " + kh.short, { size: 10.5, weight: "bold" });
-    txt(c3, `${kh.dayLabel} ${kh.time}${kh.location ? ` · ${kh.location}` : ""}`, { size: 9.5, color: C.muted });
-  }
-  w.addSpacer(8);
-  if (d.tonight) tonightBlock(w, d.tonight, { maxItems: family === "extraLarge" ? 5 : 2 });
-  w.addSpacer(8);
-
-  const bottom = row(w, 10);
-  const hw = col(bottom, 4);
-  txt(hw, `DEVOIRS · ${d.homeworkCounts.open}`, { size: 9, weight: "heavy", color: C.muted });
-  for (const h of d.homework.slice(0, family === "extraLarge" ? 6 : 3)) homeworkRow(hw, h, { size: 11 });
+  w.addSpacer(6);
+  rings(w, family === "extraLarge" ? 4 : 2);
+  w.addSpacer(6);
+  const hw = col(w, 3);
+  txt(hw, `À RENDRE · ${d.homeworkCounts.week} cette semaine`, { size: 8.5, weight: "heavy", color: d.homeworkCounts.overdue ? C.danger : C.muted });
+  for (const h of d.homework.slice(0, family === "extraLarge" ? 6 : 2)) homeworkRow(hw, h, { size: 10.5 });
   if (!d.homework.length) txt(hw, "Tout est fait 🎉", { size: 11, color: C.ok });
-  const st = col(bottom, 3);
-  txt(st, "SEMAINE", { size: 9, weight: "heavy", color: C.muted });
-  st.addImage(bars(d.weekWork.byDay.map((x) => x.minutes), { w: 96, h: 44, color: NAVY_LIGHT, labels: d.weekWork.byDay.map((x) => x.short), highlight: d.weekWork.byDay.findIndex((x) => x.isToday) }));
-  txt(st, `${fmtMin(d.weekWork.realMinutes)} / ${fmtMin(d.weekWork.plannedMinutes)}`, { size: 9.5, weight: "semibold", color: C.accent });
   return w;
 }
 

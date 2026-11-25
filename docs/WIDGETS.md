@@ -14,7 +14,7 @@ Un seul script, [`scriptable/planning-plus-widget.js`](scriptable/planning-plus-
 
 | Paramètre | Petit | Moyen | Grand / très grand |
 |---|---|---|---|
-| `tableau` (défaut) | anneau DS (soirs restants, jauge de prépa) + devoirs + ce soir | DS en anneau, khôlle, devoirs | tableau de bord complet : DS, CB, khôlle, ce soir avec boutons, devoirs à cocher, histogramme de la semaine |
+| `tableau` (défaut) | anneau DS (soirs restants, jauge de prépa) + devoirs + ce soir | « Ce soir » en grand (bleu marine, barre par matière, Focus / étude↔maison) ; sinon anneaux DS + khôlle | direction A : maintenant / ensuite avec minuteur, bande de la journée, « Ce soir » en grand, anneaux DS / khôlle (+ CB / semaine en très grand), à rendre |
 | `edt` | cours en cours / suivant | les prochains cours d'aujourd'hui | **emploi du temps dessiné sur 3 jours** (5 jours en très grand), couleurs des matières, sessions hachurées, ligne rouge « maintenant » |
 | `maintenant` | cours en cours + suivant, minuteur en direct | idem | idem |
 | `devoirs` | anneau « cette semaine », retards | 4 devoirs avec **bouton pour cocher** | 9 devoirs groupés (en retard, aujourd'hui, demain, plus tard) + bouton « Devoir » |
@@ -26,6 +26,8 @@ Un seul script, [`scriptable/planning-plus-widget.js`](scriptable/planning-plus-
 | `actions` | 4 boutons | 4 boutons | 8 boutons : devoir, post-it, étude/maison, Focus, Bilan, synchro, calendrier, revue |
 
 **Écran verrouillé** (même script, aucun paramètre nécessaire) : rond = soirs avant le prochain DS, rectangle = cours en cours/suivant (sinon ce soir), ligne = prochain DS + compte à rebours.
+
+Design v2 (25/11) : mêmes anneaux qu'à l'app (chiffre = soirs restants, anneau = préparation), « Ce soir » sur fond bleu marine avec la barre de remplissage par matière, couleurs Philo / Management mises à jour.
 
 ## Boutons
 

@@ -24,3 +24,10 @@ Ces points priment sur `docs/SPEC.md`.
 
 ## Process
 - À la demande de Naïm, les 4 phases sont enchaînées sans validation intermédiaire.
+
+## Design v2 (25/11/2026)
+- Tableau de bord « Aujourd'hui d'abord » (direction A de l'audit) : EDT en temps réel (maintenant / ensuite + bande de la journée), « Ce soir » en grand, comptes à rebours en anneaux, « À rendre » glissable.
+- Couleurs d'affichage : Philo `#00897B` (au lieu de `#0B8043`, trop proche de Lettres) et Management `#B0369B` (au lieu de `#8E24AA`). Les couleurs Google ne changent pas ; une couleur personnalisée dans Réglages est conservée.
+- iPhone : onglets Aujourd'hui · Planner · [+] · Devoirs · Plus ; le calendrier est dans « Plus » et sur l'accueil.
+- Mode sombre : plus de bordures sur les cartes, hiérarchie par la luminosité des surfaces.
+- Pas de retour haptique ni d'icône sombre/teintée : iOS ne les permet pas aux PWA.
