@@ -25,6 +25,11 @@
 
 const KC_URL = "planning-plus-url";
 const KC_TOKEN = "planning-plus-token";
+const KC_STYLE = "planning-plus-style";
+// Style « verre » : pour un écran d'accueil transparent ou teinté (iOS repeint en blanc uni
+// tout fond de couleur). Les cartes et boutons sont alors dessinés par un contour, sans fond.
+let GLASS = false;
+const GLASS_LINE = new Color("#FFFFFF", 0.45);
 const DEFAULT_URL = "https://planning-plus-two.vercel.app";
 const SCRIPT = Script.name();
 
@@ -380,7 +385,10 @@ function card(parent, { pad = 8, radius = 12, bg = C.card, url } = {}) {
   s.layoutVertically();
   s.setPadding(pad, pad, pad, pad);
   s.cornerRadius = radius;
-  s.backgroundColor = bg;
+  if (GLASS) {
+    s.borderWidth = 1;
+    s.borderColor = GLASS_LINE;
+  } else s.backgroundColor = bg;
   if (url) s.url = url;
   return s;
 }
@@ -410,7 +418,11 @@ function pill(parent, label, { bg = C.accent, fg = C.white, url, icon, size = 11
   s.centerAlignContent();
   s.setPadding(5, 9, 5, 9);
   s.cornerRadius = 10;
-  s.backgroundColor = bg;
+  if (GLASS) {
+    s.borderWidth = 1;
+    s.borderColor = GLASS_LINE;
+    fg = C.text;
+  } else s.backgroundColor = bg;
   s.spacing = 4;
   if (url) s.url = url;
   if (icon) symbol(s, icon, size, fg);
@@ -565,7 +577,10 @@ function tonightBlock(parent, t, { buttons = true, maxItems = 3, width = 300 } =
   g.locations = [0, 1];
   g.startPoint = new Point(0, 0);
   g.endPoint = new Point(1, 1);
-  c.backgroundGradient = g;
+  if (GLASS) {
+    c.borderWidth = 1;
+    c.borderColor = GLASS_LINE;
+  } else c.backgroundGradient = g;
   c.url = app(`/planner/${t.id}`);
   const white = Color.white();
   const soft = new Color("#FFFFFF", 0.72);
@@ -990,7 +1005,7 @@ function wPostits(d, family) {
     for (const n of notes.slice(i, i + perRow)) {
       const c = card(r, { pad: 8, radius: 10, bg: new Color(NOTE_BG[n.color] || NOTE_BG.yellow), url: act("notedone", { id: n.id }) });
       c.size = new Size(family === "small" ? 0 : 0, family === "large" || family === "extraLarge" ? 84 : 0);
-      txt(c, n.content, { size: 11, color: new Color("#1B1B1B"), lines: family === "small" ? 5 : 4 });
+      txt(c, n.content, { size: 11, color: GLASS ? C.text : new Color("#1B1B1B"), lines: family === "small" ? 5 : 4 });
       c.addSpacer();
     }
     w.addSpacer(6);
@@ -1179,7 +1194,10 @@ if (q.action) {
   if (fm.fileExists(cachePath)) fm.remove(cachePath);
   Script.complete();
 } else if (config.runsInWidget) {
-  const type = (args.widgetParameter || "tableau").trim().toLowerCase();
+  const words = (args.widgetParameter || "tableau").trim().toLowerCase().split(/[\s,;:]+/);
+  const type = words.find((x) => BUILDERS[x]) || "tableau";
+  const style = words.includes("verre") || words.includes("transparent") ? "verre" : words.includes("normal") ? "normal" : Keychain.contains(KC_STYLE) ? Keychain.get(KC_STYLE) : "normal";
+  GLASS = style === "verre";
   Script.setWidget(await buildWidget(type, config.widgetFamily || "medium"));
   Script.complete();
 } else {
@@ -1190,10 +1208,20 @@ if (q.action) {
   menu.message = "Aperçu des widgets";
   const types = Object.keys(BUILDERS).filter((k) => k !== "dashboard");
   for (const t of types) menu.addAction(t);
+  GLASS = Keychain.contains(KC_STYLE) && Keychain.get(KC_STYLE) === "verre";
   menu.addAction("⚙️ URL et token");
+  menu.addAction(GLASS ? "🎨 Style : verre → passer en normal" : "🪟 Style : normal → passer en verre (écran transparent)");
   menu.addCancelAction("Fermer");
   const i = await menu.presentSheet();
   if (i === types.length) await setup();
+  else if (i === types.length + 1) {
+    Keychain.set(KC_STYLE, GLASS ? "normal" : "verre");
+    const a = new Alert();
+    a.title = GLASS ? "Style normal" : "Style verre activé";
+    a.message = "Appliqué à tous tes widgets Planning+ (au prochain rafraîchissement). Un widget peut forcer son style avec le paramètre, ex. « tableau verre » ou « tableau normal ».";
+    a.addAction("OK");
+    await a.presentAlert();
+  }
   else if (i >= 0) {
     const size = new Alert();
     size.title = types[i];

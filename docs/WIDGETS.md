@@ -29,6 +29,13 @@ Un seul script, [`scriptable/planning-plus-widget.js`](scriptable/planning-plus-
 
 Design v2 (25/11) : mêmes anneaux qu'à l'app (chiffre = soirs restants, anneau = préparation), « Ce soir » sur fond bleu marine avec la barre de remplissage par matière, couleurs Philo / Management mises à jour.
 
+## Écran d'accueil transparent ou teinté (style « verre »)
+
+En mode transparent / teinté d'iOS, tout fond de couleur est repeint en blanc uni : les cartes deviennent des pavés blancs et leur texte disparaît. Le style **verre** dessine les cartes et les boutons par un contour, sans fond.
+
+- Pour tous les widgets : lance le script dans Scriptable → « 🪟 Style : normal → passer en verre ».
+- Pour un seul widget : ajoute `verre` au paramètre, ex. `tableau verre`, `edt verre` (ou `normal` pour forcer le style normal).
+
 ## Boutons
 
 Les boutons qui *agissent* (cocher un devoir, basculer étude/maison, ranger un post-it, synchroniser, ajouter un devoir ou un post-it) relancent le script via `scriptable:///run/Planning%2B?action=…` : Scriptable s'ouvre une seconde, exécute l'action et confirme par une notification. Les autres ouvrent directement la bonne page de Planning+.
