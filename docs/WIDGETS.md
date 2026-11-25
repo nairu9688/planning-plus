@@ -10,6 +10,12 @@ Un seul script, [`scriptable/planning-plus-widget.js`](scriptable/planning-plus-
 4. Lance-le une fois (▶︎) : il demande l'URL (`https://planning-plus-two.vercel.app`) et le token, stockés dans le trousseau iOS. Le menu qui suit permet de **prévisualiser chaque widget dans chaque taille**.
 5. Écran d'accueil → appui long → **+** → Scriptable → choisis la taille → touche le widget → Script : *Planning+*, **Parameter** : le type ci-dessous, « When interacting » : *Open URL* (laisser par défaut).
 
+## Aperçu de tous les widgets
+
+[`scriptable/preview.html`](scriptable/preview.html) exécute le vrai script dans le navigateur avec des données d'exemple et affiche chaque type dans chaque taille, iPhone et iPad, en écran normal ou transparent, clair ou sombre, style normal ou verre. Les contenus qui débordent sont signalés. Après toute modification du script : `node tools/build-widget-preview.mjs`.
+
+Sur iPad, à taille égale, les widgets sont moins hauts : le script détecte l'iPad (`Device.isPad()`) et affiche une ligne de moins là où il le faut ; l'EDT très grand met les 3 jours côte à côte.
+
 ## Types de widgets
 
 | Paramètre | Petit | Moyen | Grand / très grand |

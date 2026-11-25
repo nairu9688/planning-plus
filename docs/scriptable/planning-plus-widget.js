@@ -51,6 +51,8 @@ const C = {
   white: Color.white(),
 };
 const DARK = Device.isUsingDarkAppearance();
+// Les widgets iPad sont moins hauts que sur iPhone à taille égale : une ligne de moins.
+const PAD = typeof Device.isPad === "function" && Device.isPad();
 const hex = (h, a = 1) => new Color(h || "#8A93A6", a);
 const NOTE_BG = { yellow: "#FFF4C2", blue: "#DCEBFF", green: "#DDF5E3", pink: "#FFE0EA", purple: "#EDE3FF" };
 
@@ -145,13 +147,31 @@ const act = (action, params = {}) =>
 const app = (path = "/") => `${cfg().url}${path}`;
 
 // ── Dessin (DrawContext) ────────────────────────────────────────────────────
+const CTX_SIZE = new Map();
+const IMG_SIZE = new Map();
 function ctx(w, h) {
   const c = new DrawContext();
   c.size = new Size(w, h);
   c.opaque = false;
   c.respectScreenScale = true;
+  CTX_SIZE.set(c, new Size(w, h));
   return c;
 }
+/** Termine un dessin en retenant sa taille (sinon l'iPad agrandit l'image pour remplir la place). */
+function done(c) {
+  const img = c.getImage();
+  IMG_SIZE.set(img, CTX_SIZE.get(c));
+  return img;
+}
+/** Ajoute une image dessinée à sa taille exacte. */
+function addImg(parent, img) {
+  const wi = parent.addImage(img);
+  const s = IMG_SIZE.get(img);
+  if (s) wi.imageSize = s;
+  return wi;
+}
+/** Couleur de dessin : en style verre, tout passe en blanc (iOS délave les images en mode transparent). */
+const gw = (normal, alpha = 1) => (GLASS ? new Color("#FFFFFF", alpha) : normal);
 
 /** Anneau de progression avec texte au centre. */
 function ring({ size = 64, pct = 0, color = NAVY_LIGHT, track, width = 7, big = "", small = "", bigSize, textColor }) {
@@ -172,7 +192,8 @@ function ring({ size = 64, pct = 0, color = NAVY_LIGHT, track, width = 7, big = 
     c.setLineWidth(width);
     c.strokePath();
   };
-  arc(0, 1, track || new Color(DARK ? "#2A3348" : "#E3E7EF"));
+  arc(0, 1, GLASS ? new Color("#FFFFFF", 0.25) : track || new Color(DARK ? "#2A3348" : "#E3E7EF"));
+  color = gw(color);
   if (pct > 0) arc(0, Math.min(1, pct), color);
   // Bouts arrondis.
   if (pct > 0) {
@@ -182,7 +203,7 @@ function ring({ size = 64, pct = 0, color = NAVY_LIGHT, track, width = 7, big = 
       c.fillEllipse(new Rect(cx + r * Math.cos(a) - width / 2, cy + r * Math.sin(a) - width / 2, width, width));
     }
   }
-  const tc = textColor || (DARK ? Color.white() : NAVY);
+  const tc = GLASS ? Color.white() : textColor || (DARK ? Color.white() : NAVY);
   c.setTextAlignedCenter();
   c.setTextColor(tc);
   c.setFont(Font.boldRoundedSystemFont(bigSize || size * 0.3));
@@ -190,10 +211,10 @@ function ring({ size = 64, pct = 0, color = NAVY_LIGHT, track, width = 7, big = 
   c.drawTextInRect(String(big), new Rect(0, cy - bh / 2 - (small ? size * 0.07 : 0), size, bh));
   if (small) {
     c.setFont(Font.semiboldSystemFont(size * 0.12));
-    c.setTextColor(new Color(DARK ? "#95A0B8" : "#667089"));
+    c.setTextColor(gw(new Color(DARK ? "#95A0B8" : "#667089"), 0.75));
     c.drawTextInRect(small, new Rect(0, cy + bh / 2 - size * 0.08, size, size * 0.18));
   }
-  return c.getImage();
+  return done(c);
 }
 
 /** Histogramme vertical (minutes par jour). */
@@ -210,16 +231,16 @@ function bars(values, { w = 140, h = 56, color = NAVY_LIGHT, labels = [], highli
     const p = new Path();
     p.addRoundedRect(new Rect(x, h - lh - bh, bw, bh), Math.min(4, bw / 2), Math.min(4, bw / 2));
     c.addPath(p);
-    c.setFillColor(i === highlight ? color : new Color(color.hex, v ? 0.55 : 0.18));
+    c.setFillColor(GLASS ? new Color("#FFFFFF", i === highlight ? 1 : v ? 0.6 : 0.2) : i === highlight ? color : new Color(color.hex, v ? 0.55 : 0.18));
     c.fillPath();
     if (labels[i]) {
       c.setFont(Font.semiboldSystemFont(8));
-      c.setTextColor(new Color(DARK ? "#95A0B8" : "#667089"));
+      c.setTextColor(gw(new Color(DARK ? "#95A0B8" : "#667089"), 0.75));
       c.setTextAlignedCenter();
       c.drawTextInRect(labels[i], new Rect(x - 2, h - lh + 1, bw + 4, lh));
     }
   });
-  return c.getImage();
+  return done(c);
 }
 
 /** Barre horizontale empilée par matière. */
@@ -229,16 +250,16 @@ function stacked(parts, { w = 300, h = 10 }) {
   const p0 = new Path();
   p0.addRoundedRect(new Rect(0, 0, w, h), h / 2, h / 2);
   c.addPath(p0);
-  c.setFillColor(new Color(DARK ? "#2A3348" : "#E3E7EF"));
+  c.setFillColor(gw(new Color(DARK ? "#2A3348" : "#E3E7EF"), 0.2));
   c.fillPath();
   let x = 0;
-  for (const part of parts) {
+  parts.forEach((part, k) => {
     const pw = (w * part.value) / total;
-    c.setFillColor(hex(part.color));
+    c.setFillColor(GLASS ? new Color("#FFFFFF", [1, 0.7, 0.45, 0.3][k % 4]) : hex(part.color));
     c.fillRect(new Rect(x, 0, Math.max(0, pw - 1), h));
     x += pw;
-  }
-  return c.getImage();
+  });
+  return done(c);
 }
 
 /** Emploi du temps sur plusieurs jours, dessiné (colonnes par jour). */
@@ -254,13 +275,13 @@ function timeline(days, { w = 330, h = 280, nowMin }) {
   const colW = (w - gutter) / days.length;
   const ppm = (h - head) / (end - start);
   const y = (m) => head + (m - start) * ppm;
-  const muted = new Color(DARK ? "#95A0B8" : "#667089");
-  const line = new Color(DARK ? "#283147" : "#E3E7EF");
+  const muted = gw(new Color(DARK ? "#95A0B8" : "#667089"), 0.7);
+  const line = gw(new Color(DARK ? "#283147" : "#E3E7EF"), 0.18);
 
   // En-têtes de jours.
   days.forEach((d, i) => {
     c.setFont(Font.boldSystemFont(10));
-    c.setTextColor(i === 0 ? (DARK ? NAVY_LIGHT : NAVY) : muted);
+    c.setTextColor(i === 0 ? gw(DARK ? NAVY_LIGHT : NAVY) : muted);
     c.setTextAlignedCenter();
     c.drawTextInRect(i === 0 ? "Aujourd'hui" : d.short, new Rect(gutter + i * colW, 0, colW, 14));
   });
@@ -290,10 +311,10 @@ function timeline(days, { w = 330, h = 280, nowMin }) {
       const p = new Path();
       p.addRoundedRect(new Rect(x0, top, bw, bh), 4, 4);
       c.addPath(p);
-      c.setFillColor(new Color(DARK ? "#7C9CE0" : "#1B2A4A", DARK ? 0.2 : 0.12));
+      c.setFillColor(gw(new Color(DARK ? "#7C9CE0" : "#1B2A4A", DARK ? 0.2 : 0.12), 0.08));
       c.fillPath();
       // Hachures.
-      c.setStrokeColor(new Color(DARK ? "#7C9CE0" : "#1B2A4A", 0.25));
+      c.setStrokeColor(gw(new Color(DARK ? "#7C9CE0" : "#1B2A4A", 0.25), 0.22));
       c.setLineWidth(1);
       for (let k = -bh; k < bw; k += 6) {
         const hp = new Path();
@@ -308,7 +329,7 @@ function timeline(days, { w = 330, h = 280, nowMin }) {
       }
       if (bh >= 12) {
         c.setFont(Font.semiboldSystemFont(7.5));
-        c.setTextColor(DARK ? NAVY_LIGHT : NAVY);
+        c.setTextColor(gw(DARK ? NAVY_LIGHT : NAVY, 0.85));
         c.setTextAlignedLeft();
         c.drawTextInRect(`Session ${s.startLabel}`, new Rect(x0 + 3, top + 1, bw - 4, 10));
       }
@@ -316,12 +337,12 @@ function timeline(days, { w = 330, h = 280, nowMin }) {
     for (const e of d.events) {
       const top = y(e.startMin);
       const bh = Math.max(8, y(e.endMin) - top - 1);
-      const col = hex(e.color);
+      const col = gw(hex(e.color));
       const strong = e.kind === "ds" || e.kind === "kholle";
       const p = new Path();
       p.addRoundedRect(new Rect(x0, top, bw, bh), 4, 4);
       c.addPath(p);
-      c.setFillColor(new Color(e.color || "#8A93A6", DARK ? 0.32 : 0.2));
+      c.setFillColor(gw(new Color(e.color || "#8A93A6", DARK ? 0.32 : 0.2), strong ? 0.22 : 0.12));
       c.fillPath();
       if (strong) {
         c.addPath(p);
@@ -333,7 +354,7 @@ function timeline(days, { w = 330, h = 280, nowMin }) {
       c.fillRect(new Rect(x0, top + 1, 2.5, bh - 2));
       const fs = colW < 80 ? 7.5 : 8.5;
       c.setFont(strong ? Font.heavySystemFont(fs) : Font.semiboldSystemFont(fs));
-      c.setTextColor(DARK ? Color.white() : new Color("#121A2C"));
+      c.setTextColor(GLASS || DARK ? Color.white() : new Color("#121A2C"));
       c.setTextAlignedLeft();
       const lines = Math.max(1, Math.floor((bh - 2) / (fs + 2)));
       c.drawTextInRect(e.short, new Rect(x0 + 5, top + 1, bw - 7, Math.min(bh - 1, (fs + 2) * Math.min(2, lines))));
@@ -350,7 +371,7 @@ function timeline(days, { w = 330, h = 280, nowMin }) {
     c.fillRect(new Rect(gutter, y(nowMin) - 0.75, colW, 1.5));
     c.fillEllipse(new Rect(gutter - 3, y(nowMin) - 3, 6, 6));
   }
-  return c.getImage();
+  return done(c);
 }
 
 // ── Briques de mise en page ─────────────────────────────────────────────────
@@ -463,7 +484,7 @@ const nowMinutes = () => {
 function examTile(parent, e, { label, size = 58, showGauge = true } = {}) {
   const s = row(parent, 8);
   const ev = e.countdown ? e.countdown.evenings : Math.max(0, e.daysLeft);
-  s.addImage(ring({ size, pct: e.gauge ?? 0, color: hex(e.color || "#7C9CE0"), big: ev, small: ev > 1 ? "soirs" : "soir" }));
+  addImg(s, ring({ size, pct: e.gauge ?? 0, color: hex(e.color || "#7C9CE0"), big: ev, small: ev > 1 ? "soirs" : "soir" }));
   const t = col(s, 1);
   if (label) txt(t, label.toUpperCase(), { size: 8.5, weight: "heavy", color: C.muted });
   txt(t, e.short, { size: 12.5, weight: "bold", lines: 2 });
@@ -477,7 +498,7 @@ function examTile(parent, e, { label, size = 58, showGauge = true } = {}) {
 function ringTile(parent, { pct, color, big, small, label, title, url, size = 46 }) {
   const c = card(parent, { pad: 7, url });
   const r = row(c, 6);
-  r.addImage(ring({ size, pct: pct ?? 0, color: hex(color || "#7C9CE0"), big, small, width: 5 }));
+  addImg(r, ring({ size, pct: pct ?? 0, color: hex(color || "#7C9CE0"), big, small, width: 5 }));
   const t = col(r, 0);
   txt(t, label.toUpperCase(), { size: 7.5, weight: "heavy", color: C.muted });
   txt(t, title, { size: 10.5, weight: "bold", lines: 2 });
@@ -496,11 +517,11 @@ function segmentBar(items, slot, { w = 300, h = 10, track = new Color("#FFFFFF",
   let x = 0;
   for (const i of items) {
     const iw = (w * i.minutes) / total;
-    c.setFillColor(new Color(i.color || "#9FB8F0", i.done ? 0.4 : 1));
+    c.setFillColor(GLASS ? new Color("#FFFFFF", i.done ? 0.35 : 0.9) : new Color(i.color || "#9FB8F0", i.done ? 0.4 : 1));
     c.fillRect(new Rect(x, 0, Math.max(0, iw - 1.5), h));
     x += iw;
   }
-  return c.getImage();
+  return done(c);
 }
 
 /** Bande de la journée avec la ligne « maintenant » (EDT en temps réel). */
@@ -513,13 +534,13 @@ function dayStrip(day, { w = 300, h = 22, nowMin }) {
   const bg = new Path();
   bg.addRoundedRect(new Rect(0, 0, w, h), 6, 6);
   c.addPath(bg);
-  c.setFillColor(new Color(DARK ? "#1C2436" : "#EEF1F7"));
+  c.setFillColor(gw(new Color(DARK ? "#1C2436" : "#EEF1F7"), 0.12));
   c.fillPath();
   for (const s of day.sessions) {
     const p = new Path();
     p.addRoundedRect(new Rect(x(s.startMin), 3, Math.max(3, x(s.endMin) - x(s.startMin)), h - 6), 3, 3);
     c.addPath(p);
-    c.setFillColor(new Color(DARK ? "#7C9CE0" : "#1B2A4A", 0.3));
+    c.setFillColor(gw(new Color(DARK ? "#7C9CE0" : "#1B2A4A", 0.3), 0.25));
     c.fillPath();
   }
   for (const e of day.events) {
@@ -527,7 +548,7 @@ function dayStrip(day, { w = 300, h = 22, nowMin }) {
     const p = new Path();
     p.addRoundedRect(new Rect(x(e.startMin), 3, Math.max(3, x(e.endMin) - x(e.startMin) - 1), h - 6), 3, 3);
     c.addPath(p);
-    c.setFillColor(new Color(e.color || "#8A93A6", past ? 0.35 : 0.85));
+    c.setFillColor(gw(new Color(e.color || "#8A93A6", past ? 0.35 : 0.85), past ? 0.3 : 0.75));
     c.fillPath();
   }
   if (nowMin > start && nowMin < end) {
@@ -535,13 +556,13 @@ function dayStrip(day, { w = 300, h = 22, nowMin }) {
     c.fillRect(new Rect(x(nowMin) - 1, 0, 2, h));
   }
   c.setFont(Font.mediumSystemFont(7));
-  c.setTextColor(new Color(DARK ? "#95A0B8" : "#667089"));
+  c.setTextColor(gw(new Color(DARK ? "#95A0B8" : "#667089"), 0.7));
   for (let k = 0; k <= 4; k++) {
     const m = start + ((end - start) * k) / 4;
     c.setTextAlignedLeft();
     c.drawTextInRect(`${Math.floor(m / 60)}h`, new Rect(Math.min(w - 16, x(m)), h + 1, 18, 9));
   }
-  return c.getImage();
+  return done(c);
 }
 
 /** Maintenant / ensuite en une ligne compacte (grand tableau de bord). */
@@ -592,7 +613,7 @@ function tonightBlock(parent, t, { buttons = true, maxItems = 3, width = 300 } =
   h.addSpacer();
   txt(h, t.status === "bilan_fait" ? "bilan fait ✓" : `${fmtMin(t.plannedMinutes)}/${fmtMin(t.slotMinutes)}`, { size: 9, weight: "semibold", color: soft });
   c.addSpacer(5);
-  c.addImage(segmentBar(t.items, t.slotMinutes, { w: width, h: 9 }));
+  addImg(c, segmentBar(t.items, t.slotMinutes, { w: width, h: 9 }));
   c.addSpacer(5);
   if (!t.items.length) txt(c, "Rien de prévu · touche pour remplir", { size: 11, color: soft });
   for (const i of t.items.slice(0, maxItems)) {
@@ -637,7 +658,7 @@ function wTableau(d, family) {
     w.addSpacer(6);
     if (nextDs) {
       const r = row(w, 8);
-      r.addImage(ring({ size: 62, pct: nextDs.gauge ?? 0, color: hex(nextDs.color), big: nextDs.countdown.evenings, small: "soirs" }));
+      addImg(r, ring({ size: 62, pct: nextDs.gauge ?? 0, color: hex(nextDs.color), big: nextDs.countdown.evenings, small: "soirs" }));
       const t = col(r, 1);
       txt(t, nextDs.short, { size: 12, weight: "bold", lines: 3 });
       txt(t, nextDs.dayLabel, { size: 9.5, color: C.muted });
@@ -669,17 +690,42 @@ function wTableau(d, family) {
 
   if (family === "medium") {
     // Moyen : Ce soir en grand si une session existe, sinon les anneaux.
-    if (d.tonight) tonightBlock(w, d.tonight, { maxItems: 2, buttons: true, width: 300 });
+    if (d.tonight) tonightBlock(w, d.tonight, { maxItems: PAD ? 1 : 2, buttons: true, width: 300 });
     else rings(w, 2);
     return w;
   }
 
-  // Grand / très grand : direction A — maintenant/ensuite, Ce soir, anneaux, À rendre.
+  // Très grand (iPad) : deux colonnes — journée et Ce soir à gauche, anneaux et À rendre à droite.
+  if (family === "extraLarge") {
+    const cols = row(w, 12);
+    cols.topAlignContent();
+    const left = col(cols, 6);
+    left.size = new Size(330, 0);
+    nowNext(left, d);
+    addImg(left, dayStrip(d.days[0], { w: 330, h: 16, nowMin: nowMinutes() }));
+    if (d.tonight) tonightBlock(left, d.tonight, { maxItems: 3, width: 308 });
+    else {
+      const c = card(left, { pad: 8, bg: C.card2, url: app("/planner") });
+      txt(c, "Pas de session ce soir · touche pour en créer une", { size: 10.5, color: C.muted });
+    }
+    const right = col(cols, 6);
+    rings(right, 2);
+    const r2 = row(right, 6);
+    if (d.cb) ringTile(r2, { pct: 0, color: "#7C9CE0", big: d.cb.daysLeft, small: "jours", label: "CB", title: d.cb.name, url: app(`/ds/cb/${d.cb.id}`) });
+    ringTile(r2, { pct: ww.plannedMinutes ? ww.realMinutes / ww.plannedMinutes : 0, color: "#1E8E3E", big: fmtMin(ww.realMinutes), small: "", label: "Semaine", title: `/ ${fmtMin(ww.plannedMinutes)}`, url: app("/stats") });
+    const hw = col(right, 3);
+    txt(hw, `À RENDRE · ${d.homeworkCounts.week} cette semaine`, { size: 8.5, weight: "heavy", color: d.homeworkCounts.overdue ? C.danger : C.muted });
+    for (const h of d.homework.slice(0, 3)) homeworkRow(hw, h, { size: 10.5 });
+    if (!d.homework.length) txt(hw, "Tout est fait 🎉", { size: 11, color: C.ok });
+    return w;
+  }
+
+  // Grand : direction A — maintenant/ensuite, Ce soir, anneaux, À rendre.
   nowNext(w, d);
   w.addSpacer(4);
-  w.addImage(dayStrip(d.days[0], { w: family === "extraLarge" ? 680 : 310, h: 16, nowMin: nowMinutes() }));
+  addImg(w, dayStrip(d.days[0], { w: family === "extraLarge" ? 680 : 310, h: 16, nowMin: nowMinutes() }));
   w.addSpacer(6);
-  if (d.tonight) tonightBlock(w, d.tonight, { maxItems: family === "extraLarge" ? 5 : 2, width: family === "extraLarge" ? 660 : 290 });
+  if (d.tonight) tonightBlock(w, d.tonight, { maxItems: PAD ? 1 : 2, width: family === "extraLarge" ? 660 : 290 });
   else {
     const c = card(w, { pad: 8, bg: C.card2, url: app("/planner") });
     txt(c, "Pas de session ce soir · touche pour en créer une", { size: 10.5, color: C.muted });
@@ -689,7 +735,7 @@ function wTableau(d, family) {
   w.addSpacer(6);
   const hw = col(w, 3);
   txt(hw, `À RENDRE · ${d.homeworkCounts.week} cette semaine`, { size: 8.5, weight: "heavy", color: d.homeworkCounts.overdue ? C.danger : C.muted });
-  for (const h of d.homework.slice(0, family === "extraLarge" ? 6 : 2)) homeworkRow(hw, h, { size: 10.5 });
+  for (const h of d.homework.slice(0, PAD ? 1 : 2)) homeworkRow(hw, h, { size: 10.5 });
   if (!d.homework.length) txt(hw, "Tout est fait 🎉", { size: 11, color: C.ok });
   return w;
 }
@@ -722,17 +768,18 @@ function wEdt(d, family) {
     header(w, `Emploi du temps · ${n} jours`, { icon: "calendar", right: `Sem. ${d.week}` });
     w.addSpacer(6);
     const width = family === "extraLarge" ? 690 : 320;
-    w.addImage(timeline(d.days.slice(0, n), { w: width, h: 300, nowMin: nowMinutes() }));
+    addImg(w, timeline(d.days.slice(0, n), { w: width, h: 300, nowMin: nowMinutes() }));
     return w;
   }
-  return edtAgenda(w, d, { days: 3, budget: family === "extraLarge" ? 26 : 16 });
+  // Très grand (iPad, large mais peu haut) : les 3 jours côte à côte, chacun en liste verticale.
+  return edtAgenda(w, d, { days: 3, budget: family === "extraLarge" ? 13 : PAD ? 15 : 16, side: family === "extraLarge" });
 }
 
 /**
  * EDT sur 3 jours, les jours empilés verticalement : pour chaque jour, ses cours en lignes
  * (heure, barre de couleur de la matière, titre, salle). Les cours déjà finis aujourd'hui sont résumés.
  */
-function edtAgenda(w, d, { days = 3, budget = 16 }) {
+function edtAgenda(w, d, { days = 3, budget = 16, side = false }) {
   const nowMin = nowMinutes();
   header(w, "Emploi du temps", { icon: "calendar", right: `Sem. ${d.week}` });
   w.addSpacer(5);
@@ -747,9 +794,9 @@ function edtAgenda(w, d, { days = 3, budget = 16 }) {
     return { day, i, rest, done };
   });
 
-  // Répartit le nombre de lignes disponibles entre les jours (au moins 1 chacun).
-  const quota = list.map(() => 1);
-  let left = budget - list.length;
+  // Répartit le nombre de lignes disponibles entre les jours (au moins 1 chacun) ; côte à côte, chaque jour a tout le budget.
+  const quota = list.map(() => (side ? budget : 1));
+  let left = side ? 0 : budget - list.length;
   while (left > 0 && list.some((x, k) => x.rest.length > quota[k])) {
     for (let k = 0; k < list.length && left > 0; k++) {
       if (list[k].rest.length > quota[k]) {
@@ -759,8 +806,17 @@ function edtAgenda(w, d, { days = 3, budget = 16 }) {
     }
   }
 
+  let cols = null;
+  if (side) {
+    cols = row(w, 14);
+    cols.topAlignContent();
+  }
   list.forEach(({ day, i, rest, done }, k) => {
-    if (k > 0) w.addSpacer(5);
+    let w0 = w;
+    if (side) {
+      w = col(cols, 0);
+      w.size = new Size(215, 0);
+    } else if (k > 0) w.addSpacer(5);
     const h = row(w, 5);
     txt(h, (i === 0 ? "Aujourd'hui" : day.label).toUpperCase(), { size: 9, weight: "heavy", color: i === 0 ? C.accent : C.muted });
     if (i !== 0) txt(h, day.short, { size: 9, color: C.muted });
@@ -772,6 +828,7 @@ function edtAgenda(w, d, { days = 3, budget = 16 }) {
 
     if (!rest.length) {
       txt(w, i === 0 && done.length ? "Plus rien aujourd'hui" : "Pas de cours", { size: 10.5, color: C.muted });
+      if (side) w = w0;
       return;
     }
     const shown = rest.slice(0, quota[k]);
@@ -788,6 +845,7 @@ function edtAgenda(w, d, { days = 3, budget = 16 }) {
       txt(r, e.isSession ? `→ ${e.endLabel}` : (e.location || "").replace(/^Salle /, "S"), { size: 9, color: C.muted });
     }
     if (rest.length > shown.length) txt(w, `+ ${rest.length - shown.length} autre(s)`, { size: 8.5, color: C.muted });
+    if (side) w = w0;
   });
   w.addSpacer();
   return w;
@@ -838,7 +896,7 @@ function wDevoirs(d, family) {
     header(w, "Devoirs", { icon: "checklist" });
     w.addSpacer(4);
     const r = row(w, 8);
-    r.addImage(ring({ size: 58, pct: c.open ? 1 - c.week / Math.max(c.open, c.week, 1) : 1, color: c.overdue ? new Color("#D93025") : NAVY_LIGHT, big: c.week, small: "semaine" }));
+    addImg(r, ring({ size: 58, pct: c.open ? 1 - c.week / Math.max(c.open, c.week, 1) : 1, color: c.overdue ? new Color("#D93025") : NAVY_LIGHT, big: c.week, small: "semaine" }));
     const t = col(r, 2);
     txt(t, `${c.today} aujourd'hui`, { size: 10.5, weight: "semibold", color: c.today ? C.warn : C.text });
     txt(t, `${c.overdue} en retard`, { size: 10.5, weight: "semibold", color: c.overdue ? C.danger : C.muted });
@@ -855,7 +913,7 @@ function wDevoirs(d, family) {
   }
   header(w, "Devoirs à venir", { icon: "checklist", right: `${c.open} · ${c.overdue ? `${c.overdue} en retard` : "à jour"}` });
   w.addSpacer(6);
-  const max = family === "medium" ? 4 : family === "extraLarge" ? 14 : 9;
+  const max = family === "medium" ? (PAD ? 3 : 4) : family === "extraLarge" ? 14 : PAD ? 8 : 9;
   if (!d.homework.length) txt(w, "Aucun devoir en attente 🎉", { size: 13, weight: "semibold", color: C.ok });
   let lastGroup = null;
   for (const h of d.homework.slice(0, max)) {
@@ -890,7 +948,7 @@ function wKholles(d, family) {
     header(w, "Khôlle", { icon: "person.2.wave.2.fill" });
     w.addSpacer(4);
     const r = row(w, 6);
-    r.addImage(ring({ size: 50, pct: Math.min(1, (k.worked7dMinutes || 0) / 120), color: hex(k.color), big: k.daysLeft === 0 ? "J" : `J-${k.daysLeft}`, bigSize: 13 }));
+    addImg(r, ring({ size: 50, pct: Math.min(1, (k.worked7dMinutes || 0) / 120), color: hex(k.color), big: k.daysLeft === 0 ? "J" : `J-${k.daysLeft}`, bigSize: 13 }));
     const t = col(r, 0);
     txt(t, k.short.replace(/^Khôlle /, ""), { size: 12, weight: "bold", lines: 2 });
     txt(t, k.prep ? `prépa ${k.prep}` : k.time, { size: 11, weight: "semibold", color: C.accent });
@@ -933,7 +991,7 @@ function wDs(d, family) {
     w.url = app(`/ds/${e.id}`);
     const r = row(w, 0);
     r.addSpacer();
-    r.addImage(ring({ size: 84, pct: e.gauge ?? 0, color: hex(e.color), big: e.countdown.evenings, small: e.countdown.evenings > 1 ? "soirs" : "soir", width: 9 }));
+    addImg(r, ring({ size: 84, pct: e.gauge ?? 0, color: hex(e.color), big: e.countdown.evenings, small: e.countdown.evenings > 1 ? "soirs" : "soir", width: 9 }));
     r.addSpacer();
     w.addSpacer(4);
     const t = txt(w, e.short, { size: 11.5, weight: "bold", lines: 1 });
@@ -968,7 +1026,7 @@ function wDs(d, family) {
     txt(t, x.short, { size: 11.5, weight: "bold" });
     txt(t, `${x.dayLabel} · ${x.countdownText}`, { size: 9.5, color: C.muted });
     r.addSpacer();
-    r.addImage(ring({ size: 26, pct: x.gauge ?? 0, color: hex(x.color), width: 4, big: x.gauge === null ? "–" : Math.round(x.gauge * 100), bigSize: 8 }));
+    addImg(r, ring({ size: 26, pct: x.gauge ?? 0, color: hex(x.color), width: 4, big: x.gauge === null ? "–" : Math.round(x.gauge * 100), bigSize: 8 }));
     w.addSpacer(4);
   }
   if (d.cb) {
@@ -996,7 +1054,7 @@ function wSoir(d, family) {
     header(w, t.mode === "maison" ? "Maison" : "Étude", { icon: t.mode === "maison" ? "house.fill" : "books.vertical.fill" });
     w.addSpacer(4);
     const r = row(w, 8);
-    r.addImage(ring({ size: 56, pct: t.slotMinutes ? t.plannedMinutes / t.slotMinutes : 0, color: NAVY_LIGHT, big: t.items.length, small: "éléments" }));
+    addImg(r, ring({ size: 56, pct: t.slotMinutes ? t.plannedMinutes / t.slotMinutes : 0, color: NAVY_LIGHT, big: t.items.length, small: "éléments" }));
     const c = col(r, 1);
     txt(c, `${t.startLabel}`, { size: 15, weight: "heavy", rounded: true });
     txt(c, `→ ${t.endLabel}`, { size: 11, color: C.muted });
@@ -1006,7 +1064,7 @@ function wSoir(d, family) {
   }
   header(w, "Ce soir", { icon: "moon.stars.fill", right: t.status === "bilan_fait" ? "bilan fait ✓" : undefined });
   w.addSpacer(6);
-  tonightBlock(w, t, { maxItems: family === "medium" ? 2 : 8 });
+  tonightBlock(w, t, { maxItems: family === "medium" ? (PAD ? 1 : 2) : 8 });
   return w;
 }
 
@@ -1019,27 +1077,27 @@ function wSemaine(d, family) {
     w.addSpacer(4);
     const r = row(w, 0);
     r.addSpacer();
-    r.addImage(ring({ size: 70, pct, color: NAVY_LIGHT, big: fmtMin(ww.realMinutes), small: `/ ${fmtMin(ww.plannedMinutes)}`, bigSize: 14 }));
+    addImg(r, ring({ size: 70, pct, color: NAVY_LIGHT, big: fmtMin(ww.realMinutes), small: `/ ${fmtMin(ww.plannedMinutes)}`, bigSize: 14 }));
     r.addSpacer();
     w.addSpacer();
-    w.addImage(stacked(ww.bySubject.map((s) => ({ value: s.minutes, color: s.color })), { w: 130, h: 7 }));
+    addImg(w, stacked(ww.bySubject.map((s) => ({ value: s.minutes, color: s.color })), { w: 130, h: 7 }));
     return w;
   }
   header(w, `Semaine ${d.week}`, { icon: "chart.bar.fill", right: d.streak ? `🔥 ${d.streak} jour(s) d'affilée` : undefined });
   w.addSpacer(6);
   const r = row(w, 12);
-  r.addImage(ring({ size: 64, pct, color: NAVY_LIGHT, big: `${Math.round(pct * 100)}%`, small: "du prévu", bigSize: 15 }));
+  addImg(r, ring({ size: 64, pct, color: NAVY_LIGHT, big: `${Math.round(pct * 100)}%`, small: "du prévu", bigSize: 15 }));
   const c = col(r, 2);
   txt(c, `${fmtMin(ww.realMinutes)} réels`, { size: 14, weight: "heavy", rounded: true });
   txt(c, `sur ${fmtMin(ww.plannedMinutes)} prévus`, { size: 10.5, color: C.muted });
   txt(c, `Semaine écoulée à ${Math.round(ww.weekElapsed * 100)} %`, { size: 10, color: C.muted });
   r.addSpacer();
-  r.addImage(bars(ww.byDay.map((x) => x.minutes), { w: family === "medium" ? 110 : 130, h: 56, color: NAVY_LIGHT, labels: ww.byDay.map((x) => x.short), highlight: ww.byDay.findIndex((x) => x.isToday) }));
+  addImg(r, bars(ww.byDay.map((x) => x.minutes), { w: family === "medium" ? 110 : 130, h: 56, color: NAVY_LIGHT, labels: ww.byDay.map((x) => x.short), highlight: ww.byDay.findIndex((x) => x.isToday) }));
   if (family !== "medium") {
     w.addSpacer(10);
     txt(w, "PAR MATIÈRE", { size: 9, weight: "heavy", color: C.muted });
     w.addSpacer(4);
-    w.addImage(stacked(ww.bySubject.map((s) => ({ value: s.minutes, color: s.color })), { w: 300, h: 10 }));
+    addImg(w, stacked(ww.bySubject.map((s) => ({ value: s.minutes, color: s.color })), { w: 300, h: 10 }));
     w.addSpacer(6);
     // Objectifs hebdomadaires si définis, sinon le temps par matière.
     const list = (ww.goals && ww.goals.length ? ww.goals : ww.bySubject).slice(0, 5);
@@ -1049,7 +1107,7 @@ function wSemaine(d, family) {
       txt(l, s.name, { size: 11 });
       l.addSpacer();
       if (s.goal) {
-        l.addImage(stacked([{ value: Math.min(s.minutes, s.goal), color: s.color }, { value: Math.max(0, s.goal - s.minutes), color: DARK ? "#2A3348" : "#E3E7EF" }], { w: 60, h: 6 }));
+        addImg(l, stacked([{ value: Math.min(s.minutes, s.goal), color: s.color }, { value: Math.max(0, s.goal - s.minutes), color: DARK ? "#2A3348" : "#E3E7EF" }], { w: 60, h: 6 }));
         txt(l, `${fmtMin(s.minutes)}/${fmtMin(s.goal)}`, { size: 10, weight: "semibold", color: s.minutes >= s.goal ? C.ok : C.muted });
       } else txt(l, fmtMin(s.minutes), { size: 11, weight: "semibold", color: C.muted });
     }
@@ -1090,7 +1148,7 @@ function wPostits(d, family) {
 function wActions(d, family) {
   const w = base("/");
   header(w, "Raccourcis", { icon: "bolt.fill", right: d.homeworkCounts.overdue ? `${d.homeworkCounts.overdue} en retard` : undefined });
-  w.addSpacer(8);
+  w.addSpacer(PAD ? 4 : 8);
   const buttons = [
     ["Devoir", "plus.circle.fill", act("newhw")],
     ["Focus libre", "timer", act("focus")],
@@ -1110,7 +1168,7 @@ function wActions(d, family) {
       const c = card(r, { pad: 8, radius: 14, bg: C.card2, url });
       const ic = row(c, 0);
       ic.addSpacer();
-      symbol(ic, icon, 20, C.accent);
+      symbol(ic, icon, PAD && family === "small" ? 17 : 20, C.accent);
       ic.addSpacer();
       c.addSpacer(3);
       const lt = row(c, 0);
@@ -1118,7 +1176,7 @@ function wActions(d, family) {
       txt(lt, label, { size: 9.5, weight: "semibold" });
       lt.addSpacer();
     }
-    w.addSpacer(6);
+    if (i + perRow < list.length) w.addSpacer(6);
   }
   return w;
 }
@@ -1129,11 +1187,12 @@ function wAccessory(d, family) {
   const e = d.ds[0];
   if (family === "accessoryCircular") {
     w.addAccessoryWidgetBackground = true;
+    w.setPadding(0, 0, 0, 0);
     if (!e) {
       txt(w, "DS", { size: 12, weight: "bold" });
       return w;
     }
-    w.addImage(ring({ size: 60, pct: e.gauge ?? 0, color: Color.white(), track: new Color("#FFFFFF", 0.25), big: e.countdown.evenings, small: "soirs", textColor: Color.white(), width: 6 }));
+    addImg(w, ring({ size: 60, pct: e.gauge ?? 0, color: Color.white(), track: new Color("#FFFFFF", 0.25), big: e.countdown.evenings, small: "soirs", textColor: Color.white(), width: 6 }));
     w.url = app(`/ds/${e.id}`);
     return w;
   }
