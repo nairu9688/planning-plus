@@ -114,7 +114,7 @@ export function WeekGrid({
 
   return (
     <div className="overflow-x-auto">
-      <div style={{ minWidth: days.length > 1 ? 640 : undefined }}>
+      <div style={{ minWidth: days.length > 3 ? 640 : undefined }}>
         <div className="grid sticky top-0 z-10 bg-surface" style={{ gridTemplateColumns: `44px repeat(${days.length}, minmax(0,1fr))` }}>
           <div />
           {days.map((d) => (

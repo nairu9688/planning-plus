@@ -154,7 +154,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* Planning de la semaine (repliable, navigation sans quitter la page) */}
-      <WeekPlanner initial={{ monday: d.monday, week: d.week, ...grid }} today={d.today} subjects={ctx.subjects} />
+      <WeekPlanner initial={{ monday: d.monday, week: d.week, ...grid }} today={d.today} subjects={ctx.subjects} weekAReference={ctx.settings.week_a_reference_date} />
 
       {d.neglected.length > 0 && (
         <div className="flex flex-wrap items-center gap-2 rounded-xl border border-warning/40 bg-warning/5 px-3 py-2 text-sm">

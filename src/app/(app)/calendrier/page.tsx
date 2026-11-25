@@ -8,6 +8,7 @@ import { addDays, dateKey, mondayOf, parisDateTime, weekLetter } from "@/lib/dom
 import { isHoliday } from "@/lib/domain/holidays";
 import { cn, formatDayLong, formatMinutes, formatMonthYear, keyToDate, tint } from "@/lib/format";
 import { WeekGrid } from "@/components/calendar/week-grid";
+import { WeekPlanner } from "@/components/dashboard/week-planner";
 import { QuickAddButton } from "@/components/shell/quick-add";
 
 type View = "jour" | "semaine" | "mois" | "annee";
@@ -84,7 +85,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
 
       <div className="card p-2 sm:p-3">
         {view === "jour" && <DayOrWeek days={[date]} today={today} />}
-        {view === "semaine" && <DayOrWeek days={Array.from({ length: 7 }, (_, i) => addDays(mondayOf(date), i))} today={today} />}
+        {view === "semaine" && <ResponsiveWeek monday={mondayOf(date)} today={today} />}
         {view === "mois" && <MonthView month={monthStart(date)} today={today} />}
         {view === "annee" && <YearView start={schoolYearStart(date)} today={today} />}
       </div>
@@ -94,6 +95,21 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
   async function DayOrWeek({ days, today }: { days: string[]; today: string }) {
     const grid = await loadGrid(supabase, ctx, days[0], days.length);
     return <WeekGrid days={days} events={grid.events} sessions={grid.sessions} subjects={ctx.subjects} today={today} />;
+  }
+
+  // Semaine : 7 jours sur grand écran, 3 jours avec glissement sur iPhone.
+  async function ResponsiveWeek({ monday, today }: { monday: string; today: string }) {
+    const grid = await loadGrid(supabase, ctx, monday, 7);
+    return (
+      <WeekPlanner
+        key={monday}
+        variant="calendar"
+        initial={{ monday, events: grid.events, sessions: grid.sessions }}
+        today={today}
+        subjects={ctx.subjects}
+        weekAReference={ctx.settings.week_a_reference_date}
+      />
+    );
   }
 
   async function MonthView({ month, today }: { month: string; today: string }) {
