@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { Celebration } from "@/components/ui/celebration";
 import { Check, Plus, RotateCcw, X } from "lucide-react";
 import { addSessionItem, updateSessionItem, validateReview } from "@/app/actions/sessions";
 import { cn, formatMinutes } from "@/lib/format";
@@ -20,8 +20,8 @@ export function ReviewEditor({
   comment: string;
   validated: boolean;
 }) {
-  const router = useRouter();
   const [comment, setComment] = useState(initialComment);
+  const [celebrate, setCelebrate] = useState<null | { title: string; lines: string[] }>(null);
   const [pending, start] = useTransition();
   const [adding, setAdding] = useState(false);
   const subj = (id: string | null) => subjects.find((s) => s.id === id);
@@ -29,6 +29,7 @@ export function ReviewEditor({
 
   return (
     <section className="card card-pad space-y-3">
+      {celebrate && <Celebration title={celebrate.title} lines={celebrate.lines} />}
       <h2 className="section-title">
         Réel <span className="text-muted font-normal">· {formatMinutes(realTotal)}</span>
       </h2>
@@ -56,7 +57,17 @@ export function ReviewEditor({
         onClick={() =>
           start(async () => {
             await validateReview(sessionId, comment);
-            router.push("/");
+            const kept = items.filter((i) => !i.removed_in_review);
+            const done = kept.filter((i) => i.done).length;
+            const planned = items.filter((i) => i.origin === "prevu").reduce((a, i) => a + i.planned_minutes, 0);
+            setCelebrate({
+              title: done === kept.length && kept.length ? "Soirée bouclée !" : "Bilan enregistré",
+              lines: [
+                `${formatMinutes(realTotal)} de travail réel${planned ? ` sur ${formatMinutes(planned)} prévues` : ""}`,
+                `${done}/${kept.length} élément(s) fait(s)`,
+                ...(items.some((i) => i.homework_id && i.done) ? ["Devoirs cochés passés à « fait » ✓"] : []),
+              ],
+            });
           })
         }
       >

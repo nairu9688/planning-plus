@@ -21,9 +21,9 @@ export const DEFAULT_SUBJECTS: SubjectDef[] = [
   { key: "maths", name: "Mathématiques", teacher: "Le Mintier", googleColorId: "11", color: "#D50000" },
   { key: "eco", name: "Économie", teacher: "Jacquier", googleColorId: "5", color: "#F6BF26" },
   { key: "droit", name: "Droit", teacher: "Huguet", googleColorId: "9", color: "#3F51B5" },
-  { key: "management", name: "Management", teacher: "Jacques", googleColorId: "3", color: "#8E24AA" },
+  { key: "management", name: "Management", teacher: "Jacques", googleColorId: "3", color: "#B0369B" },
   { key: "anglais", name: "Anglais", teacher: "Defrance", googleColorId: "7", color: "#039BE5" },
   { key: "espagnol", name: "Espagnol", teacher: "Mayoral", googleColorId: "6", color: "#F4511E" },
   { key: "lettres", name: "Lettres", teacher: "Gay", googleColorId: "10", color: "#33B679" },
-  { key: "philo", name: "Philosophie", teacher: "Cervellon", googleColorId: "10", color: "#0B8043" },
+  { key: "philo", name: "Philosophie", teacher: "Cervellon", googleColorId: "10", color: "#00897B" },
 ];

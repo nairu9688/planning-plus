@@ -23,7 +23,7 @@ export function HomeworkCheck({ id, done, className }: { id: string; done: boole
       }}
       className={cn(
         "size-5 shrink-0 rounded-md border grid place-items-center transition-colors",
-        done ? "bg-success border-success text-white" : "border-border hover:border-primary",
+        done ? "bg-success border-success text-white pp-pop" : "border-border hover:border-primary",
         pending && "opacity-50",
         className,
       )}

@@ -58,7 +58,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
 
   return (
     <div className="space-y-4">
-      <header className="flex flex-wrap items-center justify-between gap-3 pr-11 md:pr-0">
+      <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Link href={`/calendrier?view=${view}&date=${nav.prev}`} className="btn btn-outline h-9 w-9 p-0" aria-label="Précédent">
             <ChevronLeft className="size-4" />

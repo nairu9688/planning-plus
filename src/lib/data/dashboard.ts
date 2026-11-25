@@ -2,6 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { addDays, dateKey, diffDays, mondayOf, parisDateTime, weekLetter } from "@/lib/domain/time";
 import { computeCountdown, formatCountdown, type Countdown } from "@/lib/domain/countdown";
+import { workStreak } from "@/lib/domain/streak";
 import { prepGauge, workedMinutesFor, type PrepStatus } from "@/lib/domain/targets";
 import type { UserContext } from "@/lib/data/context";
 import { loadDs, loadKholles, type DsWithEvent, type KholleWithEvent } from "@/lib/data/exams";
@@ -154,8 +155,9 @@ export async function loadDashboard(db: SupabaseClient, ctx: UserContext, now = 
   const weekBySubject: Record<string, number> = {};
   for (const i of weekItems) if (i.subject_id) weekBySubject[i.subject_id] = (weekBySubject[i.subject_id] ?? 0) + realMinutes(i);
 
-  // Matières délaissées (phase 3).
-  const neglected = await neglectedSubjects(db, ctx, now);
+  // Matières délaissées (phase 3) et série de jours travaillés.
+  const [neglected, recent] = await Promise.all([neglectedSubjects(db, ctx, now), loadItemsBetween(db, ctx.userId, addDays(today, -60), today)]);
+  const streak = workStreak(recent.filter((i) => realMinutes(i) > 0).map((i) => i.session.date), today);
 
   const tonightSession = (tonight?.[0] ?? null) as (StudySession & { items: SessionItem[] }) | null;
   tonightSession?.items?.sort((a, b) => a.sort_order - b.sort_order);
@@ -181,6 +183,7 @@ export async function loadDashboard(db: SupabaseClient, ctx: UserContext, now = 
       bySubject: [...bySubject.entries()].sort((a, b) => b[1] - a[1]),
     },
     neglected,
+    streak,
   };
 }
 

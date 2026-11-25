@@ -248,6 +248,24 @@ export async function deleteSessionItem(id: string) {
   refresh();
 }
 
+/** Glisser un devoir vers la gauche (C5) : l'ajoute à la prochaine session prévue (ce soir en général). */
+export async function planHomeworkSoon(homeworkId: string) {
+  const { supabase, user } = await requireUser();
+  const { data: s } = await supabase
+    .from("study_sessions")
+    .select("id, start_at")
+    .eq("user_id", user.id)
+    .eq("status", "prevue")
+    .gte("end_at", new Date().toISOString())
+    .order("start_at")
+    .limit(1)
+    .maybeSingle();
+  if (!s) throw new Error("Aucune session prévue à venir");
+  const { data: h } = await supabase.from("homework").select("estimated_minutes").eq("id", homeworkId).single();
+  await addSessionItem(s.id, { itemType: "homework", homeworkId, plannedMinutes: h?.estimated_minutes ?? 45, target: "auto" });
+  return { sessionId: s.id as string, start: s.start_at as string };
+}
+
 /** Ajoute une révision (chapitre) à la session du soir d'aujourd'hui, ou à la prochaine session prévue. */
 export async function planReviewSoon(subjectItemId: string, minutes = 20) {
   const { supabase, user } = await requireUser();

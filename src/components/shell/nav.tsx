@@ -34,7 +34,8 @@ export const NAV = [
   { href: "/reglages", label: "Réglages", icon: Settings },
 ] as const;
 
-const MOBILE_TABS = ["/", "/calendrier", "/planner", "/devoirs"];
+// Onglets iPhone : Aujourd'hui, Planner, [+], Devoirs, Plus (le calendrier est dans « Plus » et sur l'accueil).
+const MOBILE_TABS = ["/", "/planner", "/devoirs"];
 
 function isActive(pathname: string, href: string) {
   return href === "/" ? pathname === "/" : pathname.startsWith(href);
@@ -80,11 +81,11 @@ export function BottomTabs() {
   return (
     <>
       <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 border-t border-border bg-surface/95 backdrop-blur pb-safe">
-        <div className="grid grid-cols-6 items-center px-2 pt-1.5">
+        <div className="grid grid-cols-5 items-center px-2 pt-1.5">
           {tabs.slice(0, 2).map((n) => (
-            <TabLink key={n.href} href={n.href} label={n.label} icon={n.icon} active={isActive(pathname, n.href)} />
+            <TabLink key={n.href} href={n.href} label={n.href === "/" ? "Aujourd'hui" : n.label === "Study Planner" ? "Planner" : n.label} icon={n.icon} active={isActive(pathname, n.href)} />
           ))}
-          <div className="col-span-2 flex justify-center">
+          <div className="flex justify-center">
             <button onClick={() => quickAdd()} className="size-12 -mt-5 rounded-2xl bg-primary text-on-primary grid place-items-center shadow-lg" aria-label="Nouveau">
               <Plus className="size-6" />
             </button>
@@ -92,14 +93,15 @@ export function BottomTabs() {
           {tabs.slice(2).map((n) => (
             <TabLink key={n.href} href={n.href} label={n.label === "Study Planner" ? "Planner" : n.label} icon={n.icon} active={isActive(pathname, n.href)} />
           ))}
+          <button onClick={() => setMore(true)} className={cn("flex flex-col items-center gap-0.5 py-1 text-[10px] font-medium", rest.some((n) => isActive(pathname, n.href)) ? "text-primary" : "text-muted")} aria-label="Plus de pages">
+            <LayoutGrid className="size-5" />
+            Plus
+          </button>
         </div>
       </nav>
-      <button onClick={() => setMore(true)} className="md:hidden fixed top-3 right-3 z-30 size-9 rounded-xl border border-border bg-surface grid place-items-center" aria-label="Menu">
-        <LayoutGrid className="size-4" />
-      </button>
       <Sheet open={more} onClose={() => setMore(false)} title="Menu">
         <div className="grid grid-cols-3 gap-2">
-          {[...tabs, ...rest].map((n) => (
+          {rest.map((n) => (
             <Link key={n.href} href={n.href} onClick={() => setMore(false)} className={cn("flex flex-col items-center gap-1.5 rounded-xl border border-border p-3 text-xs", isActive(pathname, n.href) && "bg-primary-tint text-primary border-transparent")}>
               <n.icon className="size-5" />
               {n.label}

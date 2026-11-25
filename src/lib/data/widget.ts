@@ -6,6 +6,7 @@ import { loadDs, loadKholles } from "@/lib/data/exams";
 import { loadItemsBetween, realMinutes } from "@/lib/data/work";
 import { formatCountdown } from "@/lib/domain/countdown";
 import { parseKholleInfo } from "@/lib/domain/kholle";
+import { workStreak } from "@/lib/domain/streak";
 import { addDays, dateKey, diffDays, mondayOf, parisDateTime, timeKey, weekdayOf } from "@/lib/domain/time";
 import type { CalendarEvent, Homework, Note, StudySession, SessionItem } from "@/lib/types";
 
@@ -161,9 +162,7 @@ export async function getWidgetData(db: SupabaseClient, ctx: UserContext, opts: 
   for (const i of weekItems) if (i.subject_id) bySubjectMap.set(i.subject_id, (bySubjectMap.get(i.subject_id) ?? 0) + realMinutes(i));
 
   // Série : jours consécutifs avec du travail réel (aujourd'hui compte s'il y en a déjà).
-  const worked = new Set(streakItems.filter((i) => realMinutes(i) > 0).map((i) => i.session.date));
-  let streak = 0;
-  for (let k = worked.has(today) ? today : addDays(today, -1); worked.has(k); k = addDays(k, -1)) streak++;
+  const streak = workStreak(streakItems.filter((i) => realMinutes(i) > 0).map((i) => i.session.date), today).days;
 
   const exam = (c: (typeof cards.ds)[number]) => ({
     id: c.id,

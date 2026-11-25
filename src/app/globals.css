@@ -17,14 +17,25 @@
   --success: #1e8e3e;
   --warning: #e37400;
   --hatch: rgba(27, 42, 74, 0.1);
+  /* Bordure des cartes : visible en clair, remplacée par l'élévation en sombre (C6). */
+  --card-border: #e3e7ef;
+  --elevated: #ffffff;
+  --shadow-elevated: 0 10px 30px -18px rgba(18, 26, 44, 0.35);
+  --hero-from: #1b2a4a;
+  --hero-to: #2c4478;
   color-scheme: light;
 }
 
 [data-theme="dark"] {
-  --bg: #0d1220;
-  --surface: #151b2b;
-  --surface-2: #1c2436;
+  --bg: #0b0f1a;
+  --surface: #121a2b;
+  --surface-2: #1a2336;
   --border: #283147;
+  --card-border: transparent;
+  --elevated: #1a2336;
+  --shadow-elevated: 0 12px 28px -14px rgba(0, 0, 0, 0.7);
+  --hero-from: #1d2c52;
+  --hero-to: #2b4170;
   --text: #e8ecf5;
   --muted: #95a0b8;
   --primary: #7c9ce0;
@@ -64,13 +75,27 @@ body {
 
 body {
   font-family: var(--font-sans);
+  /* Chiffres alignés partout (heures, minutes, notes). */
+  font-variant-numeric: tabular-nums;
   -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
 }
 
 @layer components {
   .card {
-    @apply bg-surface border border-border rounded-[16px];
+    @apply bg-surface border rounded-[16px];
+    border-color: var(--card-border);
+  }
+  /* Surface au-dessus des cartes (Ce soir, feuilles, menus). */
+  .elevated {
+    background: var(--elevated);
+    box-shadow: var(--shadow-elevated);
+  }
+  /* Bloc « Ce soir » en grand (direction A). */
+  .hero {
+    @apply rounded-[20px] text-white;
+    background: linear-gradient(140deg, var(--hero-from) 0%, var(--hero-to) 100%);
+    box-shadow: var(--shadow-elevated);
   }
   .card-pad {
     @apply p-4 sm:p-5;
@@ -130,4 +155,19 @@ body {
 
 .pb-safe {
   padding-bottom: max(env(safe-area-inset-bottom), 0.5rem);
+}
+
+/* Célébration (bilan validé) : confettis qui tombent. */
+@keyframes pp-fall {
+  0% { transform: translateY(-10vh) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(105vh) rotate(720deg); opacity: 0.9; }
+}
+@keyframes pp-pop {
+  0% { transform: scale(0.6); opacity: 0; }
+  60% { transform: scale(1.08); opacity: 1; }
+  100% { transform: scale(1); }
+}
+.pp-pop { animation: pp-pop 0.35s ease-out both; }
+@media (prefers-reduced-motion: reduce) {
+  .pp-pop, .pp-confetti { animation: none !important; }
 }

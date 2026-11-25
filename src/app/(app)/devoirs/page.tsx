@@ -7,6 +7,7 @@ import { Empty, PageHeader, SubjectChip } from "@/components/ui/misc";
 import { QuickAddButton } from "@/components/shell/quick-add";
 import { HomeworkCheck } from "@/components/dashboard/widgets";
 import { HomeworkDetail } from "./homework-detail";
+import { HomeworkSwipe } from "@/components/dashboard/homework-swipe";
 import type { Homework } from "@/lib/types";
 
 type Status = "ouverts" | "fait" | "tous";
@@ -104,7 +105,9 @@ export default async function HomeworkPage({ searchParams }: { searchParams: Pro
                 {g.items.map((h) => {
                   const sessions = plannedIn.get(h.id) ?? [];
                   return (
-                    <li key={h.id} className="flex items-center gap-3 py-2.5">
+                    <li key={h.id}>
+                      <HomeworkSwipe id={h.id} done={h.status === "fait"}>
+                    <div className="flex items-center gap-3 py-2.5 px-1">
                       <HomeworkCheck id={h.id} done={h.status === "fait"} />
                       <Link href={qs({ id: h.id })} scroll={false} className="flex-1 min-w-0">
                         <p className={cn("text-sm font-medium truncate", h.status === "fait" && "line-through text-muted")}>
@@ -119,6 +122,8 @@ export default async function HomeworkPage({ searchParams }: { searchParams: Pro
                       </Link>
                       <SubjectChip subject={h.subject_id ? ctx.subjectById.get(h.subject_id) : null} className="hidden sm:inline-flex" />
                       <span className="text-xs text-muted w-20 text-right">{h.due_at ? `${formatDayShort(h.due_at)}` : "—"}</span>
+                    </div>
+                      </HomeworkSwipe>
                     </li>
                   );
                 })}
