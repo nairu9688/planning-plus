@@ -771,15 +771,19 @@ function wEdt(d, family) {
     addImg(w, timeline(d.days.slice(0, n), { w: width, h: 300, nowMin: nowMinutes() }));
     return w;
   }
-  // Très grand (iPad, large mais peu haut) : les 3 jours côte à côte, chacun en liste verticale.
-  return edtAgenda(w, d, { days: 3, budget: family === "extraLarge" ? 13 : PAD ? 15 : 16, side: family === "extraLarge" });
+  // Paramètre « edt liste » : les 3 jours empilés les uns sous les autres.
+  if (PARAM_WORDS.includes("liste")) return edtAgenda(w, d, { days: 3, budget: family === "extraLarge" ? 13 : PAD ? 15 : 16, side: family === "extraLarge" });
+  // Par défaut : une colonne par jour, côte à côte, les cours de haut en bas.
+  const colW = family === "extraLarge" ? 215 : PAD ? 100 : 106;
+  return edtAgenda(w, d, { days: 3, budget: family === "extraLarge" ? 13 : PAD ? 9 : 10, side: true, colW });
 }
 
 /**
  * EDT sur 3 jours, les jours empilés verticalement : pour chaque jour, ses cours en lignes
  * (heure, barre de couleur de la matière, titre, salle). Les cours déjà finis aujourd'hui sont résumés.
  */
-function edtAgenda(w, d, { days = 3, budget = 16, side = false }) {
+function edtAgenda(w, d, { days = 3, budget = 16, side = false, colW = 215 }) {
+  const narrow = side && colW < 150;
   const nowMin = nowMinutes();
   header(w, "Emploi du temps", { icon: "calendar", right: `Sem. ${d.week}` });
   w.addSpacer(5);
@@ -808,15 +812,44 @@ function edtAgenda(w, d, { days = 3, budget = 16, side = false }) {
 
   let cols = null;
   if (side) {
-    cols = row(w, 14);
+    cols = row(w, narrow ? 8 : 14);
     cols.topAlignContent();
   }
   list.forEach(({ day, i, rest, done }, k) => {
     let w0 = w;
     if (side) {
       w = col(cols, 0);
-      w.size = new Size(215, 0);
+      w.size = new Size(colW, 0);
     } else if (k > 0) w.addSpacer(5);
+    if (narrow) {
+      // Colonne étroite : en-tête court, puis chaque cours sur deux lignes (heure, titre).
+      const h = row(w, 3);
+      h.size = new Size(colW, 15);
+      txt(h, (i === 0 ? "Auj." : day.short).toUpperCase(), { size: 9, weight: "heavy", color: i === 0 ? C.accent : C.muted });
+      h.addSpacer();
+      if (rest.some((e) => e.kind === "ds")) pill(h, "DS", { bg: C.danger, size: 7.5 });
+      else if (rest.some((e) => e.kind === "kholle")) pill(h, "K", { bg: C.accent, size: 7.5 });
+      if (done.length) {
+        w.addSpacer(1);
+        txt(w, `${done.length} fini${done.length > 1 ? "s" : ""} ✓`, { size: 8, color: C.muted });
+      }
+      w.addSpacer(4);
+      if (!rest.length) txt(w, i === 0 && done.length ? "Plus rien" : "Pas de cours", { size: 10, color: C.muted });
+      const shown = rest.slice(0, quota[k]);
+      for (const e of shown) {
+        const live = i === 0 && e.startMin <= nowMin && e.endMin > nowMin;
+        const r = row(w, 4);
+        bar(r, e.isSession ? "#7C9CE0" : e.color, 24);
+        const t = col(r, 0);
+        txt(t, live ? `now → ${e.endLabel}` : e.isSession ? `${e.startLabel}→${e.endLabel}` : e.startLabel, { size: 8.5, weight: live ? "heavy" : "semibold", color: live ? C.danger : C.muted, rounded: true });
+        const strong = e.kind === "ds" || e.kind === "kholle";
+        txt(t, e.short, { size: 10, weight: strong ? "heavy" : e.isSession ? "medium" : "semibold", color: e.isSession ? C.accent : C.text });
+        w.addSpacer(3);
+      }
+      if (rest.length > shown.length) txt(w, `+ ${rest.length - shown.length}`, { size: 8.5, color: C.muted });
+      w = w0;
+      return;
+    }
     const h = row(w, 5);
     txt(h, (i === 0 ? "Aujourd'hui" : day.label).toUpperCase(), { size: 9, weight: "heavy", color: i === 0 ? C.accent : C.muted });
     if (i !== 0) txt(h, day.short, { size: 9, color: C.muted });
