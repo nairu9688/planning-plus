@@ -3,7 +3,8 @@
 import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Check, ExternalLink, Pause, Play, SkipForward, X } from "lucide-react";
+import { Check, ExternalLink, Pause, Play, Plus, SkipForward, X } from "lucide-react";
+import { startFreeFocusAction } from "@/app/actions/focus";
 import { startFocus, stopFocus, updateSessionItem } from "@/app/actions/sessions";
 import { cn } from "@/lib/format";
 
@@ -25,7 +26,19 @@ function fmt(sec: number) {
 }
 
 /** Mode Focus plein écran : élément en cours, chrono, suivant, liens. */
-export function FocusMode({ sessionId, items, running, endAt }: { sessionId: string; items: FocusItem[]; running: { itemId: string; startedAt: string } | null; endAt: string }) {
+export function FocusMode({
+  sessionId,
+  items,
+  running,
+  endAt,
+  subjects,
+}: {
+  sessionId: string;
+  items: FocusItem[];
+  running: { itemId: string; startedAt: string } | null;
+  endAt: string;
+  subjects: { id: string; name: string; color: string }[];
+}) {
   const router = useRouter();
   const firstOpen = items.findIndex((i) => !i.done);
   const initial = running ? Math.max(0, items.findIndex((i) => i.id === running.itemId)) : Math.max(0, firstOpen);
@@ -33,6 +46,37 @@ export function FocusMode({ sessionId, items, running, endAt }: { sessionId: str
   const [startedAt, setStartedAt] = useState<number | null>(running && items[initial]?.id === running.itemId ? new Date(running.startedAt).getTime() : null);
   const [now, setNow] = useState(Date.now());
   const [pending, start] = useTransition();
+  const [adding, setAdding] = useState(false);
+
+  // Le serveur renvoie un nouveau chrono (autre matière ajoutée) : on se place dessus.
+  useEffect(() => {
+    if (!running) return;
+    const j = items.findIndex((i) => i.id === running.itemId);
+    if (j >= 0) {
+      setIdx(j);
+      setStartedAt(new Date(running.startedAt).getTime());
+    }
+  }, [running?.itemId, running?.startedAt, items]);
+
+  /** Passer à un autre élément à tout moment : le chrono en cours s'arrête (et compte), le nouveau démarre s'il tournait. */
+  const switchTo = (j: number) => {
+    if (j === idx) return;
+    const wasRunning = startedAt !== null;
+    start(async () => {
+      if (wasRunning) await stopFocus();
+      setIdx(j);
+      if (wasRunning) {
+        const r = await startFocus(items[j].id);
+        setStartedAt(new Date(r.started_at).getTime());
+      } else setStartedAt(null);
+    });
+  };
+  const addSubject = (subjectId: string) =>
+    start(async () => {
+      await startFreeFocusAction(subjectId, null, sessionId);
+      setAdding(false);
+      router.refresh();
+    });
 
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
@@ -134,10 +178,33 @@ export function FocusMode({ sessionId, items, running, endAt }: { sessionId: str
           </div>
         </div>
       )}
-      <div className="flex gap-1 justify-center pb-8 pb-safe">
-        {items.map((i, j) => (
-          <button key={i.id} onClick={() => !startedAt && setIdx(j)} className={cn("h-1.5 w-8 rounded-full", j === idx ? "bg-primary" : i.done ? "bg-success" : "bg-border")} aria-label={i.title} />
-        ))}
+      <div className="px-4 pb-8 pb-safe space-y-3">
+        <div className="flex gap-1.5 overflow-x-auto justify-start sm:justify-center no-scrollbar">
+          {items.map((i, j) => (
+            <button
+              key={i.id}
+              onClick={() => switchTo(j)}
+              disabled={pending}
+              className={cn("chip h-8 px-3 shrink-0 border", j === idx ? "border-primary bg-primary-tint" : "border-transparent", i.done && j !== idx && "text-muted line-through")}
+            >
+              <span className="size-2 rounded-full" style={{ background: i.color ?? "var(--muted)" }} />
+              {i.subject ?? i.title}
+            </button>
+          ))}
+          <button onClick={() => setAdding((v) => !v)} className="chip h-8 px-3 shrink-0 border border-dashed border-border">
+            <Plus className="size-3.5" /> Autre matière
+          </button>
+        </div>
+        {adding && (
+          <div className="flex flex-wrap gap-1.5 justify-center">
+            {subjects.map((x) => (
+              <button key={x.id} disabled={pending} onClick={() => addSubject(x.id)} className="chip h-8 px-3" style={{ background: `${x.color}2e` }}>
+                <span className="size-2 rounded-full" style={{ background: x.color }} />
+                {x.name}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

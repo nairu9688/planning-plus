@@ -4,7 +4,7 @@ import { friendlyError } from "@/lib/errors";
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Play, Plus, Square, Timer } from "lucide-react";
-import { logWorkAction, startFreeFocusAction, stopFocusAction } from "@/app/actions/focus";
+import { focusHostAction, logWorkAction, startFreeFocusAction, stopFocusAction } from "@/app/actions/focus";
 import { cn, formatMinutes } from "@/lib/format";
 import type { Subject } from "@/lib/types";
 import type { FocusStatus } from "@/lib/focus";
@@ -22,6 +22,10 @@ export function FreeFocusForm({ subjects, onDone }: { subjects: Subject[]; onDon
   const [minutes, setMinutes] = useState(20);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
+  const [host, setHost] = useState<{ label: string } | null | undefined>(undefined);
+  useEffect(() => {
+    focusHostAction().then(setHost, () => setHost(null));
+  }, []);
 
   const run = (fn: () => Promise<unknown>) =>
     start(async () => {
@@ -37,6 +41,9 @@ export function FreeFocusForm({ subjects, onDone }: { subjects: Subject[]; onDon
 
   return (
     <div className="space-y-4">
+      <p className="rounded-xl bg-primary-tint text-sm px-3 py-2">
+        {host === undefined ? "…" : host ? <>S&apos;ajoute à ta session <b>{host.label}</b> : pas de nouvelle session.</> : <>Pas de session en ce moment : une session « Focus libre » sera créée.</>}
+      </p>
       <div>
         <span className="label">Matière</span>
         <div className="flex flex-wrap gap-1.5">
@@ -59,8 +66,8 @@ export function FreeFocusForm({ subjects, onDone }: { subjects: Subject[]; onDon
         <input id="ff-desc" className="input" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Anki, fiche chapitre 3, exos…" />
       </div>
 
-      <button className="btn btn-primary w-full h-11" disabled={pending} aria-busy={pending} onClick={() => run(() => startFreeFocusAction(subjectId, description || null))}>
-        <Play className="size-4" /> Démarrer le chrono
+      <button className="btn btn-primary w-full h-11" disabled={pending || !subjectId} aria-busy={pending} onClick={() => run(() => startFreeFocusAction(subjectId, description || null))}>
+        <Play className="size-4" /> {subjectId ? "Démarrer le chrono" : "Choisis une matière"}
       </button>
 
       <div className="rounded-2xl bg-surface-2 p-3 space-y-2">
@@ -73,10 +80,10 @@ export function FreeFocusForm({ subjects, onDone }: { subjects: Subject[]; onDon
           ))}
           <input type="number" min={1} max={600} value={minutes} onChange={(e) => setMinutes(Number(e.target.value))} className="input h-8 w-20" aria-label="Minutes" />
         </div>
-        <button className="btn btn-outline w-full" disabled={pending || !minutes} onClick={() => run(() => logWorkAction(subjectId, minutes, description || null))}>
+        <button className="btn btn-outline w-full" disabled={pending || !minutes || !subjectId} onClick={() => run(() => logWorkAction(subjectId, minutes, description || null))}>
           <Plus className="size-4" /> Ajouter {formatMinutes(minutes)}
         </button>
-        <p className="text-[11px] text-muted">S&apos;ajoute à la session en cours, sinon à une session « libre » déjà bilan faite : ça compte tout de suite dans tes stats et tes objectifs.</p>
+        <p className="text-[11px] text-muted">Compte tout de suite dans tes stats et tes objectifs.</p>
       </div>
       {error && <p className="text-sm text-danger">{error}</p>}
     </div>

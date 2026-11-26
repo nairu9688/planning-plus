@@ -5,6 +5,7 @@ import { loadUpcomingExams } from "@/lib/data/exams";
 import { ensureReview } from "@/lib/data/review";
 import { resolveTarget } from "@/lib/domain/targets";
 import { dateKey } from "@/lib/domain/time";
+import { capFocusMinutes, pickHostSession } from "@/lib/domain/focus-host";
 import type { SubjectKey } from "@/lib/domain/subjects";
 
 /** Marqueur des sessions créées par un Focus libre (bilan automatique à l'arrêt). */
@@ -20,20 +21,30 @@ export function findSubjectId(ctx: UserContext, input?: string | null): string |
   return s?.id ?? null;
 }
 
-/** Session en cours maintenant (prévue, hors sport), sinon null. */
-async function sessionInProgress(db: SupabaseClient, ctx: UserContext, now: Date) {
+/**
+ * Session qui accueille un Focus libre : la session du soir (en cours ou proche, même bilan fait),
+ * sinon une session « Focus libre » récente. Null s'il faut en créer une.
+ */
+export async function hostSession(db: SupabaseClient, ctx: UserContext, now: Date): Promise<string | null> {
   const { data } = await db
     .from("study_sessions")
-    .select("id")
+    .select("id, kind, status, start_at, end_at, notes")
     .eq("user_id", ctx.userId)
-    .eq("status", "prevue")
-    .neq("kind", "sport")
-    .lte("start_at", now.toISOString())
-    .gt("end_at", now.toISOString())
-    .order("start_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  return data?.id as string | undefined;
+    .gte("end_at", new Date(now.getTime() - 6 * 3600_000).toISOString())
+    .lte("start_at", new Date(now.getTime() + 3600_000).toISOString());
+  return pickHostSession(
+    (data ?? []).map((x) => ({ id: x.id, kind: x.kind, status: x.status, start: x.start_at, end: x.end_at, free: x.notes === FREE_FOCUS_NOTE })),
+    now,
+  );
+}
+
+/** Une session « Focus libre » réutilisée s'étend jusqu'à maintenant. */
+async function stretchFreeSession(db: SupabaseClient, sessionId: string, from: Date, to: Date) {
+  const { data } = await db.from("study_sessions").select("start_at, end_at, notes").eq("id", sessionId).single();
+  if (data?.notes !== FREE_FOCUS_NOTE) return;
+  const start = new Date(Math.min(Date.parse(data.start_at), from.getTime()));
+  const end = new Date(Math.max(Date.parse(data.end_at), to.getTime()));
+  await db.from("study_sessions").update({ start_at: start.toISOString(), end_at: end.toISOString() }).eq("id", sessionId);
 }
 
 async function createFreeSession(db: SupabaseClient, ctx: UserContext, start: Date, end: Date) {
@@ -125,60 +136,107 @@ export async function getFocusStatus(db: SupabaseClient, ctx: UserContext): Prom
 }
 
 /** Démarre un chrono sur n'importe quelle matière. S'ajoute à la session en cours, sinon crée une session « libre ». */
-export async function startFreeFocus(db: SupabaseClient, ctx: UserContext, input: { subjectId: string | null; description?: string | null }, now = new Date()) {
+export async function startFreeFocus(
+  db: SupabaseClient,
+  ctx: UserContext,
+  input: { subjectId: string | null; description?: string | null; sessionId?: string | null },
+  now = new Date(),
+) {
   await stopAnyFocus(db, ctx, now);
-  let sessionId = await sessionInProgress(db, ctx, now);
-  const sessionStart = now;
+  let sessionId = input.sessionId || (await hostSession(db, ctx, now));
   if (!sessionId) sessionId = await createFreeSession(db, ctx, now, new Date(now.getTime() + 60 * 60_000));
-  const itemId = await addFreeItem(db, ctx, sessionId, sessionStart, input.subjectId, input.description ?? null, 0);
+  else await stretchFreeSession(db, sessionId, now, new Date(now.getTime() + 5 * 60_000));
+  // Même matière (et même description) déjà dans la session : le chrono s'y ajoute, pas de doublon.
+  const { data: same } = await db
+    .from("session_items")
+    .select("id, description")
+    .eq("session_id", sessionId)
+    .eq("removed_in_review", false)
+    .match(input.subjectId ? { subject_id: input.subjectId } : {})
+    .limit(20);
+  const desc = (input.description ?? "").trim().toLowerCase();
+  const reuse = input.subjectId ? (same ?? []).find((x) => (x.description ?? "").trim().toLowerCase() === desc || (!desc && true)) : undefined;
+  const itemId = reuse?.id ?? (await addFreeItem(db, ctx, sessionId, now, input.subjectId, input.description ?? null, 0));
   const { error } = await db.from("focus_logs").insert({ user_id: ctx.userId, session_item_id: itemId, started_at: now.toISOString() });
   if (error) throw new Error(error.message);
   return getFocusStatus(db, ctx);
 }
 
 /**
- * Arrête le chrono en cours : ajoute les minutes au réel de l'élément.
- * Pour un Focus libre hors session, la session « libre » est clôturée avec bilan automatique.
+ * Arrête le chrono en cours et compte ses minutes (plafonnées si le chrono a été oublié :
+ * au plus 30 min après la fin de la session, 4 h pour un Focus libre hors session).
+ * Les éléments ajoutés en Focus libre, ou d'une session dont le bilan est fait, cumulent
+ * directement leur réel ; les autres sont pré-remplis au bilan à partir des journaux.
  */
 export async function stopAnyFocus(db: SupabaseClient, ctx: UserContext, now = new Date()) {
   const { data: logs } = await db
     .from("focus_logs")
-    .select("id, started_at, session_item_id, item:session_items!inner(id, actual_minutes, origin, session_id, session:study_sessions!inner(id, start_at, notes))")
+    .select("id, started_at, session_item_id, item:session_items!inner(id, actual_minutes, origin, session_id, description, subject_id, session:study_sessions!inner(id, start_at, end_at, status, notes))")
     .eq("user_id", ctx.userId)
     .is("ended_at", null);
   let total = 0;
   let label: string | null = null;
   for (const l of logs ?? []) {
-    const item = l.item as unknown as { id: string; actual_minutes: number | null; origin: string; session_id: string; session: { id: string; start_at: string; notes: string | null } };
-    const minutes = Math.max(1, Math.round((now.getTime() - new Date(l.started_at).getTime()) / 60_000));
+    const item = l.item as unknown as {
+      id: string;
+      actual_minutes: number | null;
+      origin: string;
+      description: string | null;
+      subject_id: string | null;
+      session: { id: string; start_at: string; end_at: string; status: string; notes: string | null };
+    };
+    const free = item.session?.notes === FREE_FOCUS_NOTE;
+    const started = new Date(l.started_at);
+    const minutes = capFocusMinutes(started, now, free ? null : new Date(item.session.end_at));
+    const ended = new Date(Math.min(now.getTime(), started.getTime() + minutes * 60_000));
     total += minutes;
-    await db.from("focus_logs").update({ ended_at: now.toISOString() }).eq("id", l.id);
-    // Les éléments ajoutés en Focus libre cumulent directement leur réel ; ceux d'une session
-    // prévue sont pré-remplis au bilan à partir des journaux (inchangé).
-    if (item.origin === "ajoute_au_bilan") {
+    await db.from("focus_logs").update({ ended_at: ended.toISOString() }).eq("id", l.id);
+    if (item.origin === "ajoute_au_bilan" || item.session.status === "bilan_fait" || item.actual_minutes !== null) {
       await db.from("session_items").update({ actual_minutes: (item.actual_minutes ?? 0) + minutes, done: true }).eq("id", item.id);
     }
-    if (item.session?.notes === FREE_FOCUS_NOTE) {
-      await closeFreeSession(db, ctx, item.session.id, new Date(item.session.start_at), now);
+    if (free) {
+      const start = new Date(Math.min(Date.parse(item.session.start_at), started.getTime()));
+      await closeFreeSession(db, ctx, item.session.id, start, ended);
     }
-    const st = await db.from("session_items").select("description, subject_id").eq("id", item.id).single();
-    label = [st.data?.subject_id ? ctx.subjectById.get(st.data.subject_id)?.name : null, st.data?.description].filter(Boolean).join(" · ") || null;
+    label = [item.subject_id ? ctx.subjectById.get(item.subject_id)?.name : null, item.description].filter(Boolean).join(" · ") || null;
   }
   return { stopped: (logs ?? []).length > 0, minutes: total, label };
 }
 
-/** Ajout rapide sans chrono : « j'ai fait 20 min de droit sur Anki ». Compte tout de suite dans le réel. */
+/**
+ * Ajout rapide sans chrono : « j'ai fait 20 min de droit sur Anki ». S'ajoute à la session du soir
+ * (en cours ou proche, même bilan fait), sinon à une session « libre » bilan faite. Compte tout de suite.
+ */
 export async function logWork(db: SupabaseClient, ctx: UserContext, input: { subjectId: string | null; description?: string | null; minutes: number }, now = new Date()) {
   const minutes = Math.round(input.minutes);
   if (!(minutes > 0 && minutes <= 600)) throw new Error("Durée entre 1 et 600 minutes");
-  const current = await sessionInProgress(db, ctx, now);
-  if (current) {
-    await addFreeItem(db, ctx, current, now, input.subjectId, input.description ?? null, minutes);
-    return { sessionId: current, minutes, inSession: true };
-  }
   const start = new Date(now.getTime() - minutes * 60_000);
+  const host = await hostSession(db, ctx, now);
+  if (host) {
+    await addFreeItem(db, ctx, host, now, input.subjectId, input.description ?? null, minutes);
+    await stretchFreeSession(db, host, start, now);
+    return { sessionId: host, minutes, inSession: true };
+  }
   const sessionId = await createFreeSession(db, ctx, start, now);
   await addFreeItem(db, ctx, sessionId, start, input.subjectId, input.description ?? null, minutes);
   await closeFreeSession(db, ctx, sessionId, start, now);
   return { sessionId, minutes, inSession: false };
+}
+
+/** Cron : arrête un chrono oublié (au-delà de son plafond), pour que la pastille ne tourne pas la nuit. */
+export async function closeStaleFocus(db: SupabaseClient, ctx: UserContext, now = new Date()) {
+  const { data } = await db
+    .from("focus_logs")
+    .select("started_at, item:session_items!inner(session:study_sessions!inner(end_at, notes))")
+    .eq("user_id", ctx.userId)
+    .is("ended_at", null);
+  const stale = (data ?? []).some((l) => {
+    const sess = (l.item as unknown as { session: { end_at: string; notes: string | null } }).session;
+    const started = new Date(l.started_at);
+    const capped = capFocusMinutes(started, now, sess.notes === FREE_FOCUS_NOTE ? null : new Date(sess.end_at));
+    return now.getTime() - started.getTime() > capped * 60_000 + 60_000;
+  });
+  if (!stale) return { stopped: 0 };
+  const r = await stopAnyFocus(db, ctx, now);
+  return { stopped: 1, minutes: r.minutes };
 }

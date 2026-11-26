@@ -29,5 +29,5 @@ export default async function FocusPage({ params }: { params: Promise<{ id: stri
     };
   });
 
-  return <FocusMode sessionId={id} items={focusItems} running={open ? { itemId: open.session_item_id, startedAt: open.started_at } : null} endAt={s.end_at} />;
+  return <FocusMode subjects={ctx.subjects.map((x) => ({ id: x.id, name: x.name, color: x.color }))} sessionId={id} items={focusItems} running={open ? { itemId: open.session_item_id, startedAt: open.started_at } : null} endAt={s.end_at} />;
 }

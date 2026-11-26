@@ -5,6 +5,7 @@ import { getGoogleAccessToken } from "@/lib/google/token";
 import { syncCalendarsRead } from "./read";
 import { generateUpcomingSessions, syncHomework, syncSessionsToCalendar } from "./write";
 import { runNotifications } from "@/lib/notifications";
+import { closeStaleFocus } from "@/lib/focus";
 
 export interface SyncReport {
   userId: string;
@@ -46,7 +47,10 @@ export async function runUserSync(userId: string, opts: { notifications?: boolea
     const t = token;
     await step("sessions", () => syncSessionsToCalendar(db, ctx, t));
   }
-  if (opts.notifications) await step("notifications", () => runNotifications(db, ctx));
+  if (opts.notifications) {
+    await step("focus", () => closeStaleFocus(db, ctx));
+    await step("notifications", () => runNotifications(db, ctx));
+  }
 
   await db
     .from("settings")
