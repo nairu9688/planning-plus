@@ -9,7 +9,7 @@ import { planSoonMessage } from "@/lib/plan-label";
 export function HomeworkSwipe({ id, done, children }: { id: string; done?: boolean; children: React.ReactNode }) {
   if (done) return <>{children}</>;
   return (
-    <SwipeRow onRight={() => setHomeworkStatus(id, "fait")} onLeft={() => planSoonMessage(() => planHomeworkSoon(id))}>
+    <SwipeRow onRight={() => setHomeworkStatus(id, "fait")} onUndoRight={() => setHomeworkStatus(id, "a_faire")} onLeft={() => planSoonMessage(() => planHomeworkSoon(id))}>
       {children}
     </SwipeRow>
   );

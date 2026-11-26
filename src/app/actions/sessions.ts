@@ -307,9 +307,13 @@ export async function openReview(sessionId: string) {
 }
 
 /** Valide le bilan : session `bilan_fait`, devoirs cochés → faits, `last_worked_at` des éléments de matière. */
-export async function validateReview(sessionId: string, comment?: string) {
+export async function validateReview(sessionId: string, comment?: string, minutes?: Record<string, number>) {
   const { supabase, user } = await requireUser();
   const now = new Date().toISOString();
+  // Durées saisies juste avant de valider (le champ n'a pas forcément perdu le focus).
+  for (const [id, m] of Object.entries(minutes ?? {})) {
+    if (Number.isFinite(m) && m >= 0 && m <= 900) await supabase.from("session_items").update({ actual_minutes: Math.round(m) }).eq("id", id).eq("session_id", sessionId);
+  }
   const { data: items } = await supabase.from("session_items").select("*").eq("session_id", sessionId);
   const { data: s } = await supabase.from("study_sessions").select("end_at").eq("id", sessionId).single();
   for (const it of (items ?? []) as SessionItem[]) {

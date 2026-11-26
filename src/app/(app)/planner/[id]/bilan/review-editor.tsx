@@ -24,8 +24,9 @@ export function ReviewEditor({
   const [celebrate, setCelebrate] = useState<null | { title: string; lines: string[] }>(null);
   const [pending, start] = useTransition();
   const [adding, setAdding] = useState(false);
+  const [edited, setEdited] = useState<Record<string, number>>({});
   const subj = (id: string | null) => subjects.find((s) => s.id === id);
-  const realTotal = items.filter((i) => !i.removed_in_review).reduce((a, i) => a + (i.actual_minutes ?? 0), 0);
+  const realTotal = items.filter((i) => !i.removed_in_review).reduce((a, i) => a + (edited[i.id] ?? i.actual_minutes ?? 0), 0);
 
   return (
     <section className="card card-pad space-y-3">
@@ -35,7 +36,7 @@ export function ReviewEditor({
       </h2>
       <ul className="divide-y divide-border">
         {items.map((i) => (
-          <RealRow key={i.id} item={i} subject={subj(i.subject_id)} />
+          <RealRow key={i.id} item={i} subject={subj(i.subject_id)} onMinutes={(m) => setEdited((e) => ({ ...e, [i.id]: m }))} />
         ))}
       </ul>
 
@@ -56,7 +57,7 @@ export function ReviewEditor({
         disabled={pending} aria-busy={pending}
         onClick={() =>
           start(async () => {
-            await validateReview(sessionId, comment);
+            await validateReview(sessionId, comment, edited);
             const kept = items.filter((i) => !i.removed_in_review);
             const done = kept.filter((i) => i.done).length;
             const planned = items.filter((i) => i.origin === "prevu").reduce((a, i) => a + i.planned_minutes, 0);
@@ -77,7 +78,7 @@ export function ReviewEditor({
   );
 }
 
-function RealRow({ item, subject }: { item: SessionItem; subject?: Subject }) {
+function RealRow({ item, subject, onMinutes }: { item: SessionItem; subject?: Subject; onMinutes: (m: number) => void }) {
   const [pending, start] = useTransition();
   const [minutes, setMinutes] = useState(item.actual_minutes ?? item.planned_minutes);
   const removed = item.removed_in_review;
@@ -107,7 +108,10 @@ function RealRow({ item, subject }: { item: SessionItem; subject?: Subject }) {
             step={5}
             className="input h-8 w-16 text-xs"
             value={minutes}
-            onChange={(e) => setMinutes(Number(e.target.value))}
+            onChange={(e) => {
+              setMinutes(Number(e.target.value));
+              onMinutes(Number(e.target.value));
+            }}
             onBlur={() => minutes !== item.actual_minutes && start(() => updateSessionItem(item.id, { actualMinutes: minutes }))}
             aria-label="Durée réelle"
           />

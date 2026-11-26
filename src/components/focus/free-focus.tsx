@@ -2,6 +2,7 @@
 import { friendlyError } from "@/lib/errors";
 
 import { useEffect, useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Play, Plus, Square, Timer } from "lucide-react";
 import { focusHostAction, logWorkAction, startFreeFocusAction, stopFocusAction } from "@/app/actions/focus";
@@ -127,8 +128,10 @@ export function FocusPill({ status }: { status: FocusStatus }) {
       <div className="elevated flex items-center gap-2 rounded-full pl-3 pr-1.5 py-1.5 border border-border">
         <span className="size-2.5 rounded-full animate-pulse" style={{ background: status.color ?? "var(--primary)" }} />
         <Timer className="size-4 text-muted" />
-        <span className="text-sm font-medium max-w-40 truncate">{status.label}</span>
-        <span className="text-sm font-semibold tabular-nums">{clock(sec)}</span>
+        <Link href={status.sessionId ? `/planner/${status.sessionId}/focus` : "/planner"} className="flex items-center gap-2 min-w-0" title="Ouvrir le Focus (changer de matière)">
+          <span className="text-sm font-medium max-w-40 truncate">{status.label}</span>
+          <span className="text-sm font-semibold tabular-nums">{clock(sec)}</span>
+        </Link>
         <button
           className="btn btn-primary h-8 rounded-full px-3"
           disabled={pending}

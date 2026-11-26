@@ -14,6 +14,8 @@ export interface FocusItem {
   subject: string | null;
   color: string | null;
   planned: number;
+  /** Minutes déjà comptées (Focus libre, bilan). */
+  actual: number;
   done: boolean;
   links: { url: string; label: string }[];
 }
@@ -139,9 +141,12 @@ export function FocusMode({
               </p>
             )}
             <h1 className={cn("text-3xl sm:text-4xl font-semibold tracking-tight", item.done && "line-through text-muted")}>{item.title}</h1>
-            <p className="text-muted">{item.planned} min prévues</p>
+            <p className="text-muted">
+              {item.planned ? `${item.planned} min prévues` : "Ajouté en Focus libre"}
+              {item.actual > 0 && ` · ${item.actual} min déjà faites`}
+            </p>
           </div>
-          <p className={cn("text-6xl sm:text-7xl font-semibold tabular-nums", elapsed > item.planned * 60 && "text-warning")}>{fmt(elapsed)}</p>
+          <p className={cn("text-6xl sm:text-7xl font-semibold tabular-nums", item.planned > 0 && elapsed > item.planned * 60 && "text-warning")}>{fmt(elapsed)}</p>
           <div className="flex gap-3">
             {startedAt ? (
               <button className="btn btn-outline h-12 px-5" onClick={pause} disabled={pending} aria-busy={pending}>
@@ -189,6 +194,7 @@ export function FocusMode({
             >
               <span className="size-2 rounded-full" style={{ background: i.color ?? "var(--muted)" }} />
               {i.subject ?? i.title}
+              {i.actual > 0 && <span className="text-muted font-normal">· {i.actual}′</span>}
             </button>
           ))}
           <button onClick={() => setAdding((v) => !v)} className="chip h-8 px-3 shrink-0 border border-dashed border-border">

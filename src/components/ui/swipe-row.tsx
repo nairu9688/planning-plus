@@ -15,6 +15,7 @@ export function SwipeRow({
   children,
   onRight,
   onLeft,
+  onUndoRight,
   rightLabel = "Fait",
   leftLabel = "Ce soir",
   className,
@@ -22,6 +23,8 @@ export function SwipeRow({
   children: React.ReactNode;
   onRight?: () => Promise<unknown> | void;
   onLeft?: () => Promise<unknown> | void;
+  /** Annuler l'action « fait » (bouton dans la confirmation). */
+  onUndoRight?: () => Promise<unknown> | void;
   rightLabel?: string;
   leftLabel?: string;
   className?: string;
@@ -52,7 +55,19 @@ export function SwipeRow({
     return (
       <div className={cn("pp-pop flex items-center gap-2 rounded-xl px-3 py-2 text-sm", state === "done-right" ? "bg-success/15 text-success" : "bg-primary-tint text-primary", className)}>
         {state === "done-right" ? <Check className="size-4" /> : <MoonStar className="size-4" />}
-        {doneText ?? (state === "done-right" ? "Fait, bravo" : "Ajouté à ta prochaine session")}
+        <span className="flex-1 min-w-0">{doneText ?? (state === "done-right" ? "Fait, bravo" : "Ajouté à ta prochaine session")}</span>
+        {state === "done-right" && onUndoRight && (
+          <button
+            className="text-xs font-semibold underline underline-offset-2 shrink-0"
+            onClick={async () => {
+              await onUndoRight();
+              setState("idle");
+              setDoneText(null);
+            }}
+          >
+            Annuler
+          </button>
+        )}
       </div>
     );
   }

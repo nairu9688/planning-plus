@@ -24,6 +24,7 @@ export default async function FocusPage({ params }: { params: Promise<{ id: stri
       subject: subject?.name ?? null,
       color: subject?.color ?? null,
       planned: i.planned_minutes,
+      actual: i.actual_minutes ?? 0,
       done: i.done,
       links: ((links ?? []) as LinkRow[]).filter((l) => ids.includes(l.target_id)).map((l) => ({ url: l.url, label: l.label ?? l.url })),
     };

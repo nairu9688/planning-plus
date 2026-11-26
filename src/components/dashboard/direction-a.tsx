@@ -123,7 +123,11 @@ export function TonightHero({ t }: { t: TonightData | null }) {
       )}
 
       <div className="flex flex-wrap gap-2 pt-1">
-        {ended && t.status !== "bilan_fait" ? (
+        {t.status === "bilan_fait" ? (
+          <Link href={`/planner/${t.id}/bilan`} className="btn bg-white text-[#1b2a4a] hover:bg-white/90 flex-1 sm:flex-none">
+            <ClipboardCheck className="size-4" /> Voir le bilan
+          </Link>
+        ) : ended ? (
           <Link href={`/planner/${t.id}/bilan`} className="btn bg-white text-[#1b2a4a] hover:bg-white/90 flex-1 sm:flex-none">
             <ClipboardCheck className="size-4" /> Faire le bilan
           </Link>
@@ -175,7 +179,7 @@ export function DueSoon({ items, total }: { items: DueItem[]; total: number }) {
           <ul className="space-y-1">
             {items.map((h) => (
               <li key={h.id}>
-                <SwipeRow onRight={() => setHomeworkStatus(h.id, "fait")} onLeft={() => planSoonMessage(() => planHomeworkSoon(h.id))}>
+                <SwipeRow onRight={() => setHomeworkStatus(h.id, "fait")} onUndoRight={() => setHomeworkStatus(h.id, "a_faire")} onLeft={() => planSoonMessage(() => planHomeworkSoon(h.id))}>
                   <Link href={`/devoirs?id=${h.id}`} className="flex items-center gap-2.5 px-2 py-2 min-w-0">
                     <span className="size-2.5 rounded-full shrink-0" style={{ background: h.color ?? "var(--muted)" }} />
                     <span className="flex-1 min-w-0">
