@@ -15,9 +15,9 @@ const QUICK_MINUTES = [10, 20, 30, 45, 60];
  * Focus libre : choisir une matière (et un mot : « Anki », « fiche ch. 3 »), puis
  * démarrer un chrono, ou noter des minutes déjà faites.
  */
-export function FreeFocusForm({ subjects, onDone }: { subjects: Subject[]; onDone: () => void }) {
+export function FreeFocusForm({ subjects, onDone, initialSubjectId = null }: { subjects: Subject[]; onDone: () => void; initialSubjectId?: string | null }) {
   const router = useRouter();
-  const [subjectId, setSubjectId] = useState<string | null>(null);
+  const [subjectId, setSubjectId] = useState<string | null>(initialSubjectId);
   const [description, setDescription] = useState("");
   const [minutes, setMinutes] = useState(20);
   const [error, setError] = useState<string | null>(null);
@@ -80,7 +80,7 @@ export function FreeFocusForm({ subjects, onDone }: { subjects: Subject[]; onDon
           ))}
           <input type="number" min={1} max={600} value={minutes} onChange={(e) => setMinutes(Number(e.target.value))} className="input h-8 w-20" aria-label="Minutes" />
         </div>
-        <button className="btn btn-outline w-full" disabled={pending || !minutes || !subjectId} onClick={() => run(() => logWorkAction(subjectId, minutes, description || null))}>
+        <button className="btn btn-outline w-full" disabled={pending || !(minutes > 0 && minutes <= 600) || !subjectId} onClick={() => run(() => logWorkAction(subjectId, minutes, description || null))}>
           <Plus className="size-4" /> Ajouter {formatMinutes(minutes)}
         </button>
         <p className="text-[11px] text-muted">Compte tout de suite dans tes stats et tes objectifs.</p>

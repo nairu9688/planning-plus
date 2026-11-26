@@ -96,7 +96,7 @@ export default async function DashboardPage() {
                 location: d.tonight.location,
                 items: d.tonight.items
                   .filter((i) => !i.removed_in_review)
-                  .map((i) => ({ id: i.id, label: i.description ?? subj(i.subject_id)?.name ?? "Élément", color: subj(i.subject_id)?.color ?? null, minutes: i.planned_minutes, done: i.done })),
+                  .map((i) => ({ id: i.id, label: i.description ?? subj(i.subject_id)?.name ?? "Élément", color: subj(i.subject_id)?.color ?? null, minutes: i.planned_minutes || i.actual_minutes || 0, done: i.done })),
               }
             }
           />

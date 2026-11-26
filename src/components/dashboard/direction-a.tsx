@@ -6,6 +6,7 @@ import { ArrowLeftRight, ClipboardCheck, MoonStar, Play, Plus } from "lucide-rea
 import { setSessionMode } from "@/app/actions/sessions";
 import { setHomeworkStatus } from "@/app/actions/homework";
 import { planHomeworkSoon } from "@/app/actions/sessions";
+import { planSoonMessage } from "@/lib/plan-label";
 import { SwipeRow } from "@/components/ui/swipe-row";
 import { FillWeekButton } from "@/components/planner/fill-week";
 import { openQuickAdd } from "@/components/shell/quick-add";
@@ -174,7 +175,7 @@ export function DueSoon({ items, total }: { items: DueItem[]; total: number }) {
           <ul className="space-y-1">
             {items.map((h) => (
               <li key={h.id}>
-                <SwipeRow onRight={() => setHomeworkStatus(h.id, "fait")} onLeft={() => planHomeworkSoon(h.id)}>
+                <SwipeRow onRight={() => setHomeworkStatus(h.id, "fait")} onLeft={() => planSoonMessage(() => planHomeworkSoon(h.id))}>
                   <Link href={`/devoirs?id=${h.id}`} className="flex items-center gap-2.5 px-2 py-2 min-w-0">
                     <span className="size-2.5 rounded-full shrink-0" style={{ background: h.color ?? "var(--muted)" }} />
                     <span className="flex-1 min-w-0">

@@ -62,6 +62,7 @@ function ItemRow({ item, subject, options }: { item: SessionItem; subject?: Subj
         <p className="text-xs text-muted">
           {TYPE_LABEL[item.item_type]}
           {subject ? ` · ${subject.name}` : ""} · {targetText(item, options)}
+          {(item.actual_minutes ?? 0) > 0 && <span className="text-success font-medium"> · {item.actual_minutes} min faites</span>}
         </p>
       </div>
       <select
@@ -108,7 +109,7 @@ export function AddItemForm({
   onAdded?: () => void;
 }) {
   const [type, setType] = useState<ItemType>("revision");
-  const [subjectId, setSubjectId] = useState<string>(subjects[0]?.id ?? "");
+  const [subjectId, setSubjectId] = useState<string>("");
   const [homeworkId, setHomeworkId] = useState<string>("");
   const [newHomework, setNewHomework] = useState("");
   const [subjectItemId, setSubjectItemId] = useState<string>("");
@@ -130,6 +131,7 @@ export function AddItemForm({
     setError(null);
     start(async () => {
       try {
+        if ((type === "revision" || (type === "homework" && !homeworkId)) && !subjectId) throw new Error("Choisis la matière");
         let hid = homeworkId || null;
         if (type === "homework" && !hid) {
           if (!newHomework.trim()) throw new Error("Choisis ou crée un devoir");
@@ -194,6 +196,7 @@ export function AddItemForm({
           {!homeworkId && (
             <div className="flex gap-2">
               <select className="input w-36" value={subjectId} onChange={(e) => setSubjectId(e.target.value)}>
+                <option value="">Matière…</option>
                 {subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
               <input className="input" placeholder="Titre du devoir" value={newHomework} onChange={(e) => setNewHomework(e.target.value)} />
@@ -205,6 +208,7 @@ export function AddItemForm({
       {type === "revision" && (
         <div className="grid sm:grid-cols-2 gap-2">
           <select className="input" value={subjectId} onChange={(e) => { setSubjectId(e.target.value); setSubjectItemId(""); }}>
+            <option value="">Matière…</option>
             {subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
           <select className="input" value={subjectItemId} onChange={(e) => setSubjectItemId(e.target.value)}>

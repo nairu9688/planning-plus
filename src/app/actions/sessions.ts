@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireUser } from "@/lib/data/auth";
 import { loadUpcomingExams } from "@/lib/data/exams";
-import { parisDateTime } from "@/lib/domain/time";
+import { addDays, parisDateTime } from "@/lib/domain/time";
 import { ensureReview } from "@/lib/data/review";
 import { stopAnyFocus } from "@/lib/focus";
 import { maisonToggle, type SessionKind } from "@/lib/domain/sessions";
@@ -32,8 +32,8 @@ export async function createSession(raw: SessionInput) {
   const input = SessionInput.parse(raw);
   const { supabase, user } = await requireUser();
   const start = parisDateTime(input.date, input.start);
-  const end = parisDateTime(input.date, input.end);
-  if (end <= start) throw new Error("La fin doit être après le début");
+  // Fin avant le début (ex. 22h → 0h30) : la session finit le lendemain.
+  const end = parisDateTime(input.end <= input.start ? addDays(input.date, 1) : input.date, input.end);
   const { data, error } = await supabase
     .from("study_sessions")
     .insert({
@@ -65,9 +65,10 @@ export async function updateSession(id: string, raw: Partial<SessionInput> & { s
   if (raw.notes !== undefined) patch.notes = raw.notes || null;
   if (raw.status) patch.status = raw.status;
   if (raw.date || raw.start || raw.end) {
-    const start = parisDateTime(date, raw.start ?? timeOf(s.start_at));
-    const end = parisDateTime(date, raw.end ?? timeOf(s.end_at));
-    if (end <= start) throw new Error("La fin doit être après le début");
+    const st = raw.start ?? timeOf(s.start_at);
+    const en = raw.end ?? timeOf(s.end_at);
+    const start = parisDateTime(date, st);
+    const end = parisDateTime(en <= st ? addDays(date, 1) : date, en);
     Object.assign(patch, { date, start_at: start.toISOString(), end_at: end.toISOString() });
   }
   const { error } = await supabase.from("study_sessions").update(patch).eq("id", id);
@@ -249,39 +250,42 @@ export async function deleteSessionItem(id: string) {
   refresh();
 }
 
-/** Glisser un devoir vers la gauche (C5) : l'ajoute à la prochaine session prévue (ce soir en général). */
-export async function planHomeworkSoon(homeworkId: string) {
-  const { supabase, user } = await requireUser();
-  const { data: s } = await supabase
+/** Prochaine session de travail (en cours ou à venir, hors sport) ; null s'il n'y en a pas. */
+async function nextWorkSession(supabase: Awaited<ReturnType<typeof requireUser>>["supabase"], userId: string) {
+  const { data } = await supabase
     .from("study_sessions")
     .select("id, start_at")
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .eq("status", "prevue")
+    .not("kind", "in", "(sport,suggestion)")
     .gte("end_at", new Date().toISOString())
     .order("start_at")
     .limit(1)
     .maybeSingle();
-  if (!s) throw new Error("Aucune session prévue à venir");
-  const { data: h } = await supabase.from("homework").select("estimated_minutes").eq("id", homeworkId).single();
-  await addSessionItem(s.id, { itemType: "homework", homeworkId, plannedMinutes: h?.estimated_minutes ?? 45, target: "auto" });
-  return { sessionId: s.id as string, start: s.start_at as string };
+  return data ? { sessionId: data.id as string, start: data.start_at as string } : null;
 }
 
-/** Ajoute une révision (chapitre) à la session du soir d'aujourd'hui, ou à la prochaine session prévue. */
+/**
+ * Glisser un devoir vers la gauche (C5) : l'ajoute à la prochaine session (ce soir en général).
+ * Renvoie la session choisie, ou null s'il n'y en a aucune (message affiché côté client :
+ * une erreur levée ici serait masquée en production).
+ */
+export async function planHomeworkSoon(homeworkId: string) {
+  const { supabase, user } = await requireUser();
+  const s = await nextWorkSession(supabase, user.id);
+  if (!s) return null;
+  const { data: h } = await supabase.from("homework").select("estimated_minutes").eq("id", homeworkId).single();
+  await addSessionItem(s.sessionId, { itemType: "homework", homeworkId, plannedMinutes: h?.estimated_minutes ?? 45, target: "auto" });
+  return s;
+}
+
+/** Ajoute une révision (chapitre) à la prochaine session de travail ; null s'il n'y en a aucune. */
 export async function planReviewSoon(subjectItemId: string, minutes = 20) {
   const { supabase, user } = await requireUser();
-  const { data: s } = await supabase
-    .from("study_sessions")
-    .select("id")
-    .eq("user_id", user.id)
-    .eq("status", "prevue")
-    .gte("end_at", new Date().toISOString())
-    .order("start_at")
-    .limit(1)
-    .maybeSingle();
-  if (!s) throw new Error("Aucune session prévue à venir");
+  const s = await nextWorkSession(supabase, user.id);
+  if (!s) return null;
   const { data: item } = await supabase.from("subject_items").select("title, subject_id").eq("id", subjectItemId).single();
-  await addSessionItem(s.id, {
+  await addSessionItem(s.sessionId, {
     itemType: "revision",
     subjectId: item?.subject_id ?? null,
     subjectItemId,
@@ -289,7 +293,7 @@ export async function planReviewSoon(subjectItemId: string, minutes = 20) {
     plannedMinutes: minutes,
     target: "auto",
   });
-  return s.id as string;
+  return s;
 }
 
 // ---------------------------------------------------------------------------

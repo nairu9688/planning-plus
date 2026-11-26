@@ -4,6 +4,7 @@ import { friendlyError } from "@/lib/errors";
 import { useState, useTransition } from "react";
 import { Check, Plus } from "lucide-react";
 import { planReviewSoon } from "@/app/actions/sessions";
+import { planSoonMessage } from "@/lib/plan-label";
 import { cn } from "@/lib/format";
 
 export interface ReviewRow {
@@ -63,7 +64,7 @@ function Row({ r }: { r: ReviewRow }) {
         onClick={() =>
           start(async () => {
             try {
-              await planReviewSoon(r.itemId);
+              await planSoonMessage(() => planReviewSoon(r.itemId));
               setDone(true);
             } catch (e) {
               setError(friendlyError(e));

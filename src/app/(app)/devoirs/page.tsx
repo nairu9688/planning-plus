@@ -74,7 +74,7 @@ export default async function HomeworkPage({ searchParams }: { searchParams: Pro
           </QuickAddButton>
         }
       />
-      <div className="flex flex-wrap gap-1.5 mb-4">
+      <div className="flex gap-1.5 mb-4 overflow-x-auto no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0 sm:flex-wrap [&>*]:shrink-0">
         {(["ouverts", "fait", "tous"] as Status[]).map((s) => (
           <Link key={s} href={qs({ statut: s })} className={cn("chip h-7", statut === s && "bg-primary text-on-primary")}>
             {s === "ouverts" ? "À faire" : s === "fait" ? "Faits" : "Tous"}
@@ -111,6 +111,7 @@ export default async function HomeworkPage({ searchParams }: { searchParams: Pro
                       <HomeworkCheck id={h.id} done={h.status === "fait"} />
                       <Link href={qs({ id: h.id })} scroll={false} className="flex-1 min-w-0">
                         <p className={cn("text-sm font-medium truncate", h.status === "fait" && "line-through text-muted")}>
+                          <span className="inline-block size-2 rounded-full mr-1.5 align-middle sm:hidden" style={{ background: (h.subject_id && ctx.subjectById.get(h.subject_id)?.color) || "var(--muted)" }} />
                           {h.priority === "haute" && <span className="text-danger mr-1">!</span>}
                           {h.title}
                         </p>
@@ -121,7 +122,7 @@ export default async function HomeworkPage({ searchParams }: { searchParams: Pro
                         </p>
                       </Link>
                       <SubjectChip subject={h.subject_id ? ctx.subjectById.get(h.subject_id) : null} className="hidden sm:inline-flex" />
-                      <span className="text-xs text-muted w-20 text-right">{h.due_at ? `${formatDayShort(h.due_at)}` : "—"}</span>
+                      <span className="text-xs text-muted w-16 sm:w-20 text-right shrink-0">{h.due_at ? `${formatDayShort(h.due_at)}` : "—"}</span>
                     </div>
                       </HomeworkSwipe>
                     </li>

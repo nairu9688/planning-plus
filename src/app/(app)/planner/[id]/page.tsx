@@ -10,6 +10,8 @@ import { SessionSettings, SuggestionActions } from "../session-controls";
 import { ItemsEditor, type ItemOptions } from "./items-editor";
 import type { SessionItem, StudySession } from "@/lib/types";
 
+const KIND_LABEL: Record<string, string> = { etude: "étude", maison: "maison", bibliotheque: "bibliothèque", sport: "sport", libre: "libre", suggestion: "suggestion" };
+
 export default async function SessionPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const { supabase, ctx } = await requireUser();
@@ -66,7 +68,7 @@ export default async function SessionPage({ params }: { params: Promise<{ id: st
           <div>
             <h1 className="text-xl font-semibold">{formatDayLong(session.start_at)}</h1>
             <p className="text-sm text-muted">
-              {formatTime(session.start_at)} – {formatTime(session.end_at)} · {session.kind}
+              {formatTime(session.start_at)} – {formatTime(session.end_at)} · {KIND_LABEL[session.kind] ?? session.kind}
               {session.location ? ` · ${session.location}` : ""}
               {session.status === "suggeree" && " · suggestion"}
               {session.status === "bilan_fait" && " · bilan fait"}

@@ -127,7 +127,8 @@ function RealRow({ item, subject }: { item: SessionItem; subject?: Subject }) {
 }
 
 function AddExtra({ sessionId, subjects, onDone }: { sessionId: string; subjects: Subject[]; onDone: () => void }) {
-  const [subjectId, setSubjectId] = useState(subjects[0]?.id ?? "");
+  // Aucune matière présélectionnée : on choisit explicitement (avant, « Mathématiques » par défaut).
+  const [subjectId, setSubjectId] = useState("");
   const [description, setDescription] = useState("");
   const [minutes, setMinutes] = useState(30);
   const [pending, start] = useTransition();
@@ -136,6 +137,7 @@ function AddExtra({ sessionId, subjects, onDone }: { sessionId: string; subjects
       className="rounded-xl border border-border p-3 space-y-2"
       onSubmit={(e) => {
         e.preventDefault();
+        if (!subjectId) return;
         start(async () => {
           await addSessionItem(sessionId, {
             itemType: "revision",
@@ -151,12 +153,21 @@ function AddExtra({ sessionId, subjects, onDone }: { sessionId: string; subjects
         });
       }}
     >
-      <div className="flex gap-2">
-        <select className="input w-40" value={subjectId} onChange={(e) => setSubjectId(e.target.value)}>
-          {subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-        </select>
-        <input className="input" placeholder="Ce que tu as fait" value={description} onChange={(e) => setDescription(e.target.value)} />
+      <div className="flex flex-wrap gap-1.5">
+        {subjects.map((s) => (
+          <button
+            type="button"
+            key={s.id}
+            onClick={() => setSubjectId(s.id)}
+            className="chip h-8 px-3 border"
+            style={{ borderColor: subjectId === s.id ? s.color : "transparent", background: subjectId === s.id ? `${s.color}2e` : undefined }}
+          >
+            <span className="size-2 rounded-full" style={{ background: s.color }} />
+            {s.name}
+          </button>
+        ))}
       </div>
+      <input className="input" placeholder="Ce que tu as fait (facultatif)" value={description} onChange={(e) => setDescription(e.target.value)} />
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1">
           <input type="number" min={0} step={5} className="input h-9 w-20" value={minutes} onChange={(e) => setMinutes(Number(e.target.value))} />
@@ -164,7 +175,7 @@ function AddExtra({ sessionId, subjects, onDone }: { sessionId: string; subjects
         </div>
         <div className="flex gap-1">
           <button type="button" className="btn btn-ghost" onClick={onDone}>Annuler</button>
-          <button className="btn btn-primary" disabled={pending} aria-busy={pending}>Ajouter</button>
+          <button className="btn btn-primary" disabled={pending || !subjectId} aria-busy={pending}>{subjectId ? "Ajouter" : "Choisis la matière"}</button>
         </div>
       </div>
     </form>

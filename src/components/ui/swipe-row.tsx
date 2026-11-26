@@ -28,6 +28,8 @@ export function SwipeRow({
 }) {
   const [dx, setDx] = useState(0);
   const [state, setState] = useState<"idle" | "busy" | "done-right" | "done-left">("idle");
+  const [doneText, setDoneText] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
   const start = useRef<{ x: number; y: number; locked: boolean | null } | null>(null);
 
   const run = async (dir: "right" | "left") => {
@@ -35,10 +37,13 @@ export function SwipeRow({
     if (!fn) return;
     setState("busy");
     try {
-      await fn();
+      const r = await fn();
+      if (typeof r === "string") setDoneText(r);
       setState(dir === "right" ? "done-right" : "done-left");
-    } catch {
+    } catch (e) {
       setState("idle");
+      setErr(e instanceof Error && !/Server Components/.test(e.message) ? e.message : "Ça n'a pas marché, réessaie");
+      setTimeout(() => setErr(null), 3000);
     }
     setDx(0);
   };
@@ -47,13 +52,14 @@ export function SwipeRow({
     return (
       <div className={cn("pp-pop flex items-center gap-2 rounded-xl px-3 py-2 text-sm", state === "done-right" ? "bg-success/15 text-success" : "bg-primary-tint text-primary", className)}>
         {state === "done-right" ? <Check className="size-4" /> : <MoonStar className="size-4" />}
-        {state === "done-right" ? "Fait, bravo" : "Ajouté à ta prochaine session"}
+        {doneText ?? (state === "done-right" ? "Fait, bravo" : "Ajouté à ta prochaine session")}
       </div>
     );
   }
 
   return (
     <div className={cn("group relative overflow-hidden rounded-xl", className)}>
+      {err && <p role="alert" className="absolute inset-x-0 top-0 z-10 rounded-xl bg-danger text-white text-xs font-medium px-3 py-2">{err}</p>}
       {/* Fonds révélés par le glissement */}
       <div className="absolute inset-0 flex items-stretch justify-between text-xs font-semibold" aria-hidden>
         <div className="flex items-center gap-1.5 px-3 bg-success text-white" style={{ opacity: dx > 0 ? Math.min(1, dx / THRESHOLD) : 0 }}>

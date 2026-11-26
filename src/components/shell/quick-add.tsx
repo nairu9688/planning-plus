@@ -86,7 +86,7 @@ export function QuickAddProvider({ subjects, children }: { subjects: Subject[]; 
             onDone={close}
           />
         )}
-        {detail && type === "focus" && <FreeFocusForm subjects={subjects} onDone={close} />}
+        {detail && type === "focus" && <FreeFocusForm subjects={subjects} onDone={close} initialSubjectId={detail.subjectId ?? null} />}
         {detail && type === "session" && <SessionQuickForm detail={detail} onDone={close} />}
         {detail && type === "postit" && <NoteQuickForm onDone={close} date={detail.date} />}
         {detail && type === "lien" && <LinkQuickForm onDone={close} />}
