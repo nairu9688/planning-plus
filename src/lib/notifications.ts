@@ -23,21 +23,22 @@ export async function runNotifications(db: SupabaseClient, ctx: UserContext, now
   const tomorrow = addDays(today, 1);
   const results: string[] = [];
 
-  if (prefs.bilan !== false && inWindow(now, "22:00", "23:30")) {
+  // Bilan : dès la fin de chaque session de travail (cron toutes les 15 min), une fois par session.
+  if (prefs.bilan !== false) {
     const { data } = await db
       .from("study_sessions")
-      .select("id, kind, status, end_at")
+      .select("id, kind, status, start_at, end_at, notes")
       .eq("user_id", ctx.userId)
-      .eq("date", today)
-      .in("kind", ["etude", "maison"])
-      .eq("status", "prevue");
-    const ended = (data ?? []).filter((s) => new Date(s.end_at) <= now);
-    if (ended.length) {
-      await sendOnce(db, ctx.userId, `bilan:${today}`, {
-        title: "Bilan de ce soir",
-        body: "Ta session est finie : 1 minute pour faire le bilan.",
-        url: `/planner/${ended[0].id}/bilan`,
-        tag: "bilan",
+      .eq("status", "prevue")
+      .not("kind", "in", "(sport,suggestion)")
+      .lte("end_at", now.toISOString())
+      .gte("end_at", new Date(now.getTime() - 2 * 3600_000).toISOString());
+    for (const s of (data ?? []).filter((x) => x.notes !== "Focus libre")) {
+      await sendOnce(db, ctx.userId, `bilan:${s.id}`, {
+        title: "Session terminée : bilan ?",
+        body: "1 minute : les durées du chrono sont déjà pré-remplies.",
+        url: `/planner/${s.id}/bilan`,
+        tag: `bilan-${s.id}`,
       });
       results.push("bilan");
     }

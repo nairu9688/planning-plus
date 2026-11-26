@@ -17,11 +17,21 @@ export const maxDuration = 60;
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const { supabase, user, ctx } = await requireUser();
   const from = new Date(Date.now() - 30 * 86_400_000);
-  const [focus, ds, kholles, { data: homework }] = await Promise.all([
+  const now = new Date();
+  const [focus, ds, kholles, { data: homework }, { data: workSessions }] = await Promise.all([
     getFocusStatus(supabase, ctx),
     loadDs(supabase, user.id, { from }),
     loadKholles(supabase, user.id, { from }),
     supabase.from("homework").select("id, title, subject_id, due_at").eq("user_id", user.id).neq("status", "fait").limit(200),
+    // Sessions de travail d'aujourd'hui : le bouton + ouvre « Focus » pendant l'une d'elles.
+    supabase
+      .from("study_sessions")
+      .select("start_at, end_at")
+      .eq("user_id", user.id)
+      .in("status", ["prevue", "bilan_fait"])
+      .not("kind", "in", "(sport,suggestion)")
+      .gte("end_at", new Date(now.getTime() - 3600_000).toISOString())
+      .lte("start_at", new Date(now.getTime() + 12 * 3600_000).toISOString()),
   ]);
   const color = (id: string | null) => (id ? ctx.subjectById.get(id)?.color : undefined);
   const entries: SearchEntry[] = [
@@ -32,7 +42,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   ];
 
   return (
-    <QuickAddProvider subjects={ctx.subjects}>
+    <QuickAddProvider subjects={ctx.subjects} workSessions={(workSessions ?? []).map((w) => ({ start: w.start_at, end: w.end_at }))}>
       <Sidebar />
       <div className="md:pl-[72px] min-h-dvh">
         <main className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 pt-5 pb-28 md:pb-10">{children}</main>

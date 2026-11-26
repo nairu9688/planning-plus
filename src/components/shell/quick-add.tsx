@@ -38,9 +38,25 @@ const TABS: { type: QuickAddType; label: string; icon: React.ElementType }[] = [
   { type: "lien", label: "Lien", icon: Link2 },
 ];
 
-export function QuickAddProvider({ subjects, children }: { subjects: Subject[]; children: React.ReactNode }) {
+export function QuickAddProvider({
+  subjects,
+  workSessions = [],
+  children,
+}: {
+  subjects: Subject[];
+  /** Sessions de travail proches : pendant l'une d'elles (jusqu'à 30 min après), + ouvre l'onglet Focus. */
+  workSessions?: { start: string; end: string }[];
+  children: React.ReactNode;
+}) {
   const [detail, setDetail] = useState<QuickAddDetail | null>(null);
-  const open = useCallback((d: QuickAddDetail = {}) => setDetail({ type: "devoir", ...d }), []);
+  const open = useCallback(
+    (d: QuickAddDetail = {}) => {
+      const t = Date.now();
+      const inSession = workSessions.some((w) => Date.parse(w.start) <= t && t <= Date.parse(w.end) + 30 * 60_000);
+      setDetail({ type: inSession && !d.homework && !d.relatedEventId && !d.date ? "focus" : "devoir", ...d });
+    },
+    [workSessions],
+  );
   const close = useCallback(() => setDetail(null), []);
 
   useEffect(() => {

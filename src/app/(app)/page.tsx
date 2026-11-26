@@ -2,6 +2,7 @@ import Link from "next/link";
 import { AlertTriangle, Plus, Timer } from "lucide-react";
 import { requireUser } from "@/lib/data/auth";
 import { loadDashboard } from "@/lib/data/dashboard";
+import { getFocusStatus } from "@/lib/focus";
 import { loadGrid } from "@/lib/data/week";
 import { addDays, dateKey, mondayOf, toParis } from "@/lib/domain/time";
 import { cn, formatDayLong, formatDayShort, formatMinutes, formatTime, greeting, relativeDay } from "@/lib/format";
@@ -23,11 +24,12 @@ import { Ring } from "@/components/ui/ring";
 export default async function DashboardPage() {
   const { supabase, user, ctx } = await requireUser();
   const now = new Date();
-  const [d, grid, reviews, live] = await Promise.all([
+  const [d, grid, reviews, live, focus] = await Promise.all([
     loadDashboard(supabase, ctx, now),
     loadGrid(supabase, ctx, mondayOf(dateKey(now)), 7),
     loadSpacedReviews(supabase, ctx, 0, now),
     loadGrid(supabase, ctx, dateKey(now), 2),
+    getFocusStatus(supabase, ctx),
   ]);
   const toLive = (day: string): LiveBlock[] => [
     ...live.events
@@ -86,6 +88,7 @@ export default async function DashboardPage() {
         <div className="lg:col-span-2 space-y-3 min-w-0">
           <LiveSchedule today={liveToday} tomorrow={liveTomorrow} />
           <TonightHero
+            focus={focus.running ? { label: focus.label ?? "Focus", color: focus.color ?? null, startedAt: focus.startedAt!, sessionId: focus.sessionId ?? null } : null}
             t={
               d.tonight && {
                 id: d.tonight.id,

@@ -2,7 +2,9 @@
 
 import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
-import { ArrowLeftRight, ClipboardCheck, MoonStar, Play, Plus } from "lucide-react";
+import { ArrowLeftRight, ClipboardCheck, MoonStar, Play, Plus, Square } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { stopFocusAction } from "@/app/actions/focus";
 import { setSessionMode } from "@/app/actions/sessions";
 import { setHomeworkStatus } from "@/app/actions/homework";
 import { planHomeworkSoon } from "@/app/actions/sessions";
@@ -40,18 +42,62 @@ function relative(ms: number) {
 }
 
 /** « Ce soir » en grand (direction A + C2) : barre de remplissage par matière, Focus, bascule étude/maison. */
-export function TonightHero({ t }: { t: TonightData | null }) {
+export interface RunningFocus {
+  label: string;
+  color: string | null;
+  startedAt: string;
+  sessionId: string | null;
+}
+
+function clock(sec: number) {
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  return `${h ? `${h}:` : ""}${String(m).padStart(2, "0")}:${String(sec % 60).padStart(2, "0")}`;
+}
+
+/** Chrono en cours, en direct dans « Ce soir ». */
+function LiveFocus({ f, now }: { f: RunningFocus; now: number }) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const sec = Math.max(0, Math.floor((now - Date.parse(f.startedAt)) / 1000));
+  return (
+    <div className="flex items-center gap-2 rounded-xl bg-white/12 px-3 py-2">
+      <span className="size-2.5 rounded-full animate-pulse shrink-0" style={{ background: f.color ?? "#9fb8f0" }} />
+      <Link href={f.sessionId ? `/planner/${f.sessionId}/focus` : "/planner"} className="flex-1 min-w-0">
+        <span className="block text-[11px] uppercase tracking-wider text-white/70 font-bold">Focus en cours</span>
+        <span className="block text-sm font-semibold truncate">{f.label}</span>
+      </Link>
+      <span className="text-xl font-semibold tabular-nums">{clock(sec)}</span>
+      <button
+        className="btn h-8 px-3 bg-white text-[#1b2a4a] hover:bg-white/90"
+        disabled={pending}
+        aria-busy={pending}
+        onClick={() =>
+          start(async () => {
+            await stopFocusAction();
+            router.refresh();
+          })
+        }
+      >
+        <Square className="size-3.5 fill-current" /> Stop
+      </button>
+    </div>
+  );
+}
+
+export function TonightHero({ t, focus = null }: { t: TonightData | null; focus?: RunningFocus | null }) {
   const [now, setNow] = useState(() => Date.now());
   const [pending, start] = useTransition();
   useEffect(() => {
-    const i = setInterval(() => setNow(Date.now()), 30_000);
+    const i = setInterval(() => setNow(Date.now()), focus ? 1000 : 30_000);
     return () => clearInterval(i);
-  }, []);
+  }, [focus]);
 
   if (!t) {
     return (
       <section className="hero p-4 sm:p-5 space-y-3">
         <p className="text-[11px] font-bold uppercase tracking-wider text-white/70">Ce soir</p>
+        {focus && <LiveFocus f={focus} now={now} />}
         <p className="text-lg font-semibold">Pas de session ce soir</p>
         <p className="text-sm text-white/70">Crée une session ou laisse Planning+ remplir ta semaine avec tes devoirs, révisions et préparations.</p>
         <div className="flex flex-wrap gap-2">
@@ -82,6 +128,8 @@ export function TonightHero({ t }: { t: TonightData | null }) {
         </p>
         <span className="rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-medium">{status}</span>
       </div>
+
+      {focus && <LiveFocus f={focus} now={now} />}
 
       {/* C2 : barre de remplissage segmentée par matière, dans l'ordre de passage */}
       <div>

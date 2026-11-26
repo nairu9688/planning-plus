@@ -50,6 +50,50 @@ export function FocusMode({
   const [pending, start] = useTransition();
   const [adding, setAdding] = useState(false);
 
+  // Pomodoro : travail puis pause ; pendant la pause le chrono est arrêté (la pause ne compte pas comme travail).
+  const [pomo, setPomo] = useState<"off" | "25/5" | "50/10">(() => {
+    try {
+      return (localStorage.getItem("pp-pomodoro") as "off" | "25/5" | "50/10") || "off";
+    } catch {
+      return "off";
+    }
+  });
+  const [cycleStart, setCycleStart] = useState<number | null>(null);
+  const [breakUntil, setBreakUntil] = useState<number | null>(null);
+  const [rounds, setRounds] = useState(0);
+  const [work, brk] = pomo === "off" ? [0, 0] : pomo.split("/").map(Number);
+  const choosePomo = (v: "off" | "25/5" | "50/10") => {
+    setPomo(v);
+    setCycleStart(v !== "off" && startedAt ? Date.now() : null);
+    setBreakUntil(null);
+    try {
+      localStorage.setItem("pp-pomodoro", v);
+    } catch {}
+  };
+  useEffect(() => {
+    if (startedAt && pomo !== "off" && cycleStart === null) setCycleStart(Date.now());
+  }, [startedAt, pomo, cycleStart]);
+  useEffect(() => {
+    if (pomo === "off" || !cycleStart || !startedAt || breakUntil) return;
+    if (now - cycleStart >= work * 60_000) {
+      start(async () => {
+        await stopFocus();
+        setStartedAt(null);
+        setRounds((r) => r + 1);
+        setBreakUntil(Date.now() + brk * 60_000);
+        setCycleStart(null);
+        try {
+          navigator.vibrate?.(300);
+        } catch {}
+      });
+    }
+  }, [now, pomo, cycleStart, startedAt, breakUntil, work, brk]);
+  const breakLeft = breakUntil ? Math.max(0, Math.floor((breakUntil - now) / 1000)) : 0;
+  const resumeAfterBreak = () => {
+    setBreakUntil(null);
+    play();
+  };
+
   // Le serveur renvoie un nouveau chrono (autre matière ajoutée) : on se place dessus.
   useEffect(() => {
     if (!running) return;
@@ -90,11 +134,12 @@ export function FocusMode({
   const elapsed = startedAt ? Math.floor((now - startedAt) / 1000) : 0;
   const remainingSession = Math.max(0, Math.floor((new Date(endAt).getTime() - now) / 1000));
 
-  const play = () =>
+  function play() {
     start(async () => {
       const r = await startFocus(item.id);
       setStartedAt(new Date(r.started_at).getTime());
     });
+  }
   const pause = () =>
     start(async () => {
       await stopFocus();
@@ -112,9 +157,16 @@ export function FocusMode({
 
   return (
     <div className="fixed inset-0 z-[70] bg-bg flex flex-col">
-      <div className="flex items-center justify-between p-4">
-        <div className="flex items-center gap-3">
+      <div className="flex items-start justify-between gap-2 p-4 pt-safe">
+        <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm text-muted">Fin de session dans {fmt(remainingSession)}</span>
+          <div className="inline-flex rounded-lg bg-surface-2 p-0.5 text-xs" role="group" aria-label="Pomodoro">
+            {(["off", "25/5", "50/10"] as const).map((v) => (
+              <button key={v} onClick={() => choosePomo(v)} className={cn("px-2 h-7 rounded-md font-medium", pomo === v ? "bg-surface shadow-sm" : "text-muted")}>
+                {v === "off" ? "Sans pause" : v}
+              </button>
+            ))}
+          </div>
           <a href={`shortcuts://run-shortcut?name=${encodeURIComponent("Planning+ Concentration")}`} className="btn btn-outline h-8 text-xs" title="Lance le raccourci « Planning+ Concentration » (voir docs/RACCOURCIS.md)">
             🌙 Concentration iPhone
           </a>
@@ -131,7 +183,16 @@ export function FocusMode({
           <X className="size-4" /> Quitter
         </button>
       </div>
-      {item ? (
+      {breakUntil ? (
+        <div className="flex-1 flex flex-col items-center justify-center gap-5 px-6 text-center">
+          <p className="text-sm font-semibold uppercase tracking-wider text-success">Pause · pomodoro {rounds} terminé</p>
+          <p className="text-6xl sm:text-7xl font-semibold tabular-nums">{fmt(breakLeft)}</p>
+          <p className="text-muted">{breakLeft ? "Lève-toi, bois de l'eau. La pause ne compte pas dans ton travail." : "Pause finie !"}</p>
+          <button className="btn btn-primary h-12 px-6" onClick={resumeAfterBreak} disabled={pending} aria-busy={pending}>
+            <Play className="size-5" /> Reprendre {item ? `· ${item.subject ?? item.title}` : ""}
+          </button>
+        </div>
+      ) : item ? (
         <div className="flex-1 flex flex-col items-center justify-center gap-6 px-6 text-center">
           <div className="space-y-2">
             {item.subject && (
@@ -172,6 +233,12 @@ export function FocusMode({
                 </a>
               ))}
             </div>
+          )}
+          {pomo !== "off" && startedAt && cycleStart && (
+            <p className="text-sm text-muted">
+              Pause dans {fmt(Math.max(0, Math.floor((cycleStart + work * 60_000 - now) / 1000)))}
+              {rounds > 0 && ` · ${rounds} pomodoro${rounds > 1 ? "s" : ""}`}
+            </p>
           )}
           {next && <p className="text-sm text-muted">Suivant : {next.title}</p>}
         </div>

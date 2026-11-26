@@ -24,12 +24,12 @@ Point de départ : test du 25/11 au soir (Focus libre qui crée des sessions, «
 
 Données corrigées à la main : les 2 sessions « Focus libre » du 25/11 ont été fusionnées dans l'étude 20h–21h50 (éléments déplacés, sessions retirées du calendrier) ; le chrono Anki (éco) oublié a été arrêté à 21h50, soit **72 min** : à ajuster dans le bilan du 25/11 si c'est faux.
 
-## À valider ensemble (rien n'a été fait)
+## Validé le 26/11 et réalisé
 
-1. **Déconnexions** : si ça se reproduit malgré le correctif, couper « Detect and revoke potentially compromised refresh tokens » dans Supabase → Authentication → Sessions. Acceptable pour une app à un seul utilisateur.
-2. **Bouton + le soir** : ouvrir directement l'onglet **Focus** (au lieu de Devoir) quand une session est en cours.
-3. **Pomodoro** dans le Focus (25/5 ou 50/10), pauses comptées à part.
-4. **Fin de session** : à l'heure de fin, notification « Bilan ? » qui ouvre le bilan pré-rempli (aujourd'hui : une seule relance entre 22h et 23h30).
-5. **« Ce soir » vivant** : pendant le chrono, afficher la matière en cours et le temps directement dans le bloc (aujourd'hui : pastille en bas d'écran).
-6. **Réordonner** les éléments d'une session par glisser-déposer (la poignée est affichée mais inactive).
-7. **Ajout de devoir plus rapide** : une seule ligne « maths exos 12-15 vendredi » analysée automatiquement (matière, échéance).
+1. **Déconnexions** : réglage Supabase à couper par toi si ça se reproduit (Authentication → Sessions, « Detect and revoke potentially compromised refresh tokens ») — je n'ai pas accès à ce réglage.
+2. **Bouton +** : pendant une session de travail (jusqu'à 30 min après), il ouvre l'onglet **Focus**.
+3. **Pomodoro** dans le Focus : « Sans pause », 25/5 ou 50/10 (mémorisé). À la fin du bloc, le chrono s'arrête, compte à rebours de pause (non compté comme travail), puis « Reprendre ».
+4. **Bilan à l'heure de fin** : notification dès la fin de chaque session de travail (cron toutes les 15 min), une seule fois par session.
+5. **« Ce soir » vivant** : matière en cours, chrono à la seconde et bouton Stop dans le bloc.
+6. **Réordonner** les éléments d'une session : poignée ⋮⋮ à glisser (doigt ou souris).
+7. **Devoir en une ligne** : champ « Saisie rapide » (« maths exos 12-15 vendredi 30min urgent ») qui remplit matière, échéance, heure, durée, priorité ; règle testée (`domain/quick-homework.ts`).

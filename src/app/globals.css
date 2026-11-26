@@ -166,6 +166,10 @@ body {
   padding-bottom: max(env(safe-area-inset-bottom), 0.5rem);
 }
 
+.pt-safe {
+  padding-top: max(env(safe-area-inset-top), 1rem);
+}
+
 /* Célébration (bilan validé) : confettis qui tombent. */
 @keyframes pp-fall {
   0% { transform: translateY(-10vh) rotate(0deg); opacity: 1; }

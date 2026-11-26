@@ -4,6 +4,8 @@ import { friendlyError } from "@/lib/errors";
 import { useState, useTransition } from "react";
 import { createHomework, deleteHomework, updateHomework } from "@/app/actions/homework";
 import type { Subject } from "@/lib/types";
+import { parseQuickHomework } from "@/lib/domain/quick-homework";
+import { dateKey } from "@/lib/domain/time";
 
 export interface HomeworkDraft {
   id?: string;
@@ -22,6 +24,21 @@ export function HomeworkForm({ subjects, draft, onDone }: { subjects: Subject[];
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const set = (p: Partial<HomeworkDraft>) => setD((x) => ({ ...x, ...p }));
+  const [quick, setQuick] = useState("");
+  /** Saisie en une ligne : remplit les champs en direct (ils restent modifiables). */
+  const onQuick = (text: string) => {
+    setQuick(text);
+    const q = parseQuickHomework(text, dateKey(new Date()));
+    const subject = q.subject ? subjects.find((x) => x.key === q.subject) : undefined;
+    set({
+      title: q.title,
+      ...(subject ? { subjectId: subject.id } : {}),
+      ...(q.dueDate ? { dueDate: q.dueDate } : {}),
+      ...(q.dueTime ? { dueTime: q.dueTime } : {}),
+      ...(q.minutes ? { estimatedMinutes: q.minutes } : {}),
+      priority: q.priority === "haute" ? "haute" : d.priority === "haute" ? "normale" : d.priority,
+    });
+  };
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -53,9 +70,24 @@ export function HomeworkForm({ subjects, draft, onDone }: { subjects: Subject[];
 
   return (
     <form onSubmit={submit} className="space-y-3">
+      {!d.id && (
+        <div>
+          <label className="label" htmlFor="hw-quick">Saisie rapide</label>
+          <input
+            id="hw-quick"
+            autoFocus
+            className="input"
+            value={quick}
+            onChange={(e) => onQuick(e.target.value)}
+            placeholder="maths exos 12-15 vendredi 30min"
+            enterKeyHint="done"
+          />
+          <p className="text-[11px] text-muted mt-1">Matière, jour (demain, vendredi, 3/12), heure (8h), durée (30min), « urgent » : les champs se remplissent.</p>
+        </div>
+      )}
       <div>
         <label className="label" htmlFor="hw-title">Titre</label>
-        <input id="hw-title" autoFocus required className="input" value={d.title ?? ""} onChange={(e) => set({ title: e.target.value })} placeholder="Exercices 12 à 15 p. 84" />
+        <input id="hw-title" autoFocus={!!d.id} required className="input" value={d.title ?? ""} onChange={(e) => set({ title: e.target.value })} placeholder="Exercices 12 à 15 p. 84" />
       </div>
       <div>
         <span className="label">Matière</span>

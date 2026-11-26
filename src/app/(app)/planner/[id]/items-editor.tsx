@@ -1,9 +1,9 @@
 "use client";
 import { friendlyError } from "@/lib/errors";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { GripVertical, Plus, Trash2 } from "lucide-react";
-import { addSessionItem, deleteSessionItem, updateSessionItem } from "@/app/actions/sessions";
+import { addSessionItem, deleteSessionItem, reorderSessionItems, updateSessionItem } from "@/app/actions/sessions";
 import { createHomework } from "@/app/actions/homework";
 import { createSubjectItem } from "@/app/actions/exams";
 import { cn } from "@/lib/format";
@@ -25,15 +25,57 @@ const TYPE_LABEL: Record<ItemType, string> = { homework: "Devoir", revision: "R�
 export function ItemsEditor({ sessionId, items, subjects, options }: { sessionId: string; items: SessionItem[]; subjects: Subject[]; options: ItemOptions }) {
   const subjectById = useMemo(() => new Map(subjects.map((s) => [s.id, s])), [subjects]);
   const visible = items.filter((i) => !i.removed_in_review);
+  const key = visible.map((i) => i.id).join(",");
+  const [order, setOrder] = useState(() => visible.map((i) => i.id));
+  useEffect(() => setOrder(key ? key.split(",") : []), [key]);
+  const byId = new Map(visible.map((i) => [i.id, i]));
+  const listRef = useRef<HTMLUListElement>(null);
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [, startSave] = useTransition();
+
+  // Glisser-déposer à la poignée (souris et doigt) : l'élément suit le pointeur, l'ordre est enregistré au lâcher.
+  const onMove = (e: React.PointerEvent) => {
+    if (!dragId || !listRef.current) return;
+    const rows = [...listRef.current.querySelectorAll<HTMLLIElement>("li[data-id]")];
+    const others = rows.filter((r) => r.dataset.id !== dragId);
+    let idx = others.findIndex((r) => {
+      const b = r.getBoundingClientRect();
+      return e.clientY < b.top + b.height / 2;
+    });
+    if (idx === -1) idx = others.length;
+    const next = others.map((r) => r.dataset.id!);
+    next.splice(idx, 0, dragId);
+    if (next.join(",") !== order.join(",")) setOrder(next);
+  };
+  const onUp = () => {
+    if (!dragId) return;
+    setDragId(null);
+    if (order.join(",") !== key) startSave(() => reorderSessionItems(sessionId, order));
+  };
+
   return (
     <div className="space-y-3">
       <section className="card card-pad">
         <h2 className="section-title mb-3">Éléments prévus</h2>
         {visible.length ? (
-          <ul className="divide-y divide-border">
-            {visible.map((i) => (
-              <ItemRow key={i.id} item={i} subject={i.subject_id ? subjectById.get(i.subject_id) : undefined} options={options} />
-            ))}
+          <ul ref={listRef} className="divide-y divide-border" onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}>
+            {order.filter((id) => byId.has(id)).map((id) => {
+              const i = byId.get(id)!;
+              return (
+                <ItemRow
+                  key={i.id}
+                  item={i}
+                  subject={i.subject_id ? subjectById.get(i.subject_id) : undefined}
+                  options={options}
+                  dragging={dragId === i.id}
+                  onGrab={(e) => {
+                    (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+                    setDragId(i.id);
+                  }}
+                  canDrag={visible.length > 1}
+                />
+              );
+            })}
           </ul>
         ) : (
           <p className="text-sm text-muted">Aucun élément. Ajoute un devoir, une révision ou une tâche de préparation.</p>
@@ -50,12 +92,35 @@ function targetText(item: SessionItem, options: ItemOptions) {
   return "sans cible";
 }
 
-function ItemRow({ item, subject, options }: { item: SessionItem; subject?: Subject; options: ItemOptions }) {
+function ItemRow({
+  item,
+  subject,
+  options,
+  dragging,
+  onGrab,
+  canDrag,
+}: {
+  item: SessionItem;
+  subject?: Subject;
+  options: ItemOptions;
+  dragging: boolean;
+  onGrab: (e: React.PointerEvent) => void;
+  canDrag: boolean;
+}) {
   const [pending, start] = useTransition();
   const [minutes, setMinutes] = useState(item.planned_minutes);
   return (
-    <li className={cn("flex flex-wrap items-center gap-2 py-2.5", pending && "opacity-60")}>
-      <GripVertical className="size-4 text-muted hidden sm:block" />
+    <li data-id={item.id} className={cn("flex flex-wrap items-center gap-2 py-2.5 bg-surface", pending && "opacity-60", dragging && "relative z-10 rounded-xl shadow-lg ring-1 ring-primary/40")}>
+      {canDrag && (
+        <button
+          type="button"
+          onPointerDown={onGrab}
+          className="touch-none cursor-grab active:cursor-grabbing -ml-1 p-1 text-muted"
+          aria-label="Déplacer (glisser)"
+        >
+          <GripVertical className="size-4" />
+        </button>
+      )}
       <span className="size-2.5 rounded-full shrink-0" style={{ background: subject?.color ?? "var(--muted)" }} />
       <div className="flex-1 min-w-40">
         <p className="text-sm font-medium">{item.description ?? subject?.name ?? TYPE_LABEL[item.item_type]}</p>

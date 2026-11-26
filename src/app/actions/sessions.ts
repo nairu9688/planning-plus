@@ -243,6 +243,14 @@ export async function updateSessionItem(
   refresh();
 }
 
+/** Nouvel ordre des éléments d'une session (glisser-déposer). */
+export async function reorderSessionItems(sessionId: string, ids: string[]) {
+  const { supabase, user } = await requireUser();
+  await Promise.all(ids.map((id, i) => supabase.from("session_items").update({ sort_order: (i + 1) * 10 }).eq("id", id).eq("session_id", sessionId)));
+  after(() => pushSessionsNow(user.id));
+  refresh();
+}
+
 export async function deleteSessionItem(id: string) {
   const { supabase, user } = await requireUser();
   await supabase.from("session_items").delete().eq("id", id);
