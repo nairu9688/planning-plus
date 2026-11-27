@@ -3,7 +3,7 @@
 import { after } from "next/server";
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/data/auth";
-import { getFocusStatus, hostSession, logWork, startFreeFocus, stopAnyFocus } from "@/lib/focus";
+import { correctLastFocus, getFocusStatus, hostSession, logWork, startFreeFocus, stopAnyFocus } from "@/lib/focus";
 import { timeKey } from "@/lib/domain/time";
 import { pushSessionsNow } from "@/lib/sync/push-one";
 
@@ -31,6 +31,14 @@ export async function stopFocusAction() {
 export async function logWorkAction(subjectId: string | null, minutes: number, description?: string | null) {
   const { supabase, ctx, user } = await requireUser();
   const r = await logWork(supabase, ctx, { subjectId, minutes, description });
+  refresh(user.id);
+  return r;
+}
+
+/** « J'ai oublié de l'arrêter » : remplace la durée du dernier chrono de l'élément. */
+export async function correctFocusAction(itemId: string, minutes: number) {
+  const { supabase, ctx, user } = await requireUser();
+  const r = await correctLastFocus(supabase, ctx, itemId, minutes);
   refresh(user.id);
   return r;
 }

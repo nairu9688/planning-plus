@@ -6,6 +6,7 @@ import { ensureReview } from "@/lib/data/review";
 import { resolveTarget } from "@/lib/domain/targets";
 import { dateKey } from "@/lib/domain/time";
 import { capFocusMinutes, pickHostSession } from "@/lib/domain/focus-host";
+import { sendOnce } from "@/lib/push";
 import type { SubjectKey } from "@/lib/domain/subjects";
 
 /** Marqueur des sessions créées par un Focus libre (bilan automatique à l'arrêt). */
@@ -31,7 +32,7 @@ export async function hostSession(db: SupabaseClient, ctx: UserContext, now: Dat
     .select("id, kind, status, start_at, end_at, notes")
     .eq("user_id", ctx.userId)
     .gte("end_at", new Date(now.getTime() - 6 * 3600_000).toISOString())
-    .lte("start_at", new Date(now.getTime() + 3600_000).toISOString());
+    .lte("start_at", new Date(now.getTime() + 3 * 3600_000).toISOString());
   return pickHostSession(
     (data ?? []).map((x) => ({ id: x.id, kind: x.kind, status: x.status, start: x.start_at, end: x.end_at, free: x.notes === FREE_FOCUS_NOTE })),
     now,
@@ -176,6 +177,8 @@ export async function stopAnyFocus(db: SupabaseClient, ctx: UserContext, now = n
     .is("ended_at", null);
   let total = 0;
   let label: string | null = null;
+  let lastItem: string | null = null;
+  let lastSession: string | null = null;
   for (const l of logs ?? []) {
     const item = l.item as unknown as {
       id: string;
@@ -199,8 +202,10 @@ export async function stopAnyFocus(db: SupabaseClient, ctx: UserContext, now = n
       await closeFreeSession(db, ctx, item.session.id, start, ended);
     }
     label = [item.subject_id ? ctx.subjectById.get(item.subject_id)?.name : null, item.description].filter(Boolean).join(" · ") || null;
+    lastItem = item.id;
+    lastSession = item.session.id;
   }
-  return { stopped: (logs ?? []).length > 0, minutes: total, label };
+  return { stopped: (logs ?? []).length > 0, minutes: total, label, itemId: lastItem, sessionId: lastSession };
 }
 
 /**
@@ -227,9 +232,24 @@ export async function logWork(db: SupabaseClient, ctx: UserContext, input: { sub
 export async function closeStaleFocus(db: SupabaseClient, ctx: UserContext, now = new Date()) {
   const { data } = await db
     .from("focus_logs")
-    .select("started_at, item:session_items!inner(session:study_sessions!inner(end_at, notes))")
+    .select("id, started_at, item:session_items!inner(session_id, session:study_sessions!inner(end_at, notes))")
     .eq("user_id", ctx.userId)
     .is("ended_at", null);
+  // Chrono qui tourne encore après la fin de la session (ou 1 h 30 hors session) : une notification.
+  for (const l of data ?? []) {
+    const it = l.item as unknown as { session_id: string; session: { end_at: string; notes: string | null } };
+    const free = it.session.notes === FREE_FOCUS_NOTE;
+    const late = free ? now.getTime() - Date.parse(l.started_at) > 90 * 60_000 : now.getTime() > Date.parse(it.session.end_at) + 10 * 60_000;
+    if (late) {
+      const min = Math.round((now.getTime() - Date.parse(l.started_at)) / 60_000);
+      await sendOnce(db, ctx.userId, `focus-long:${l.id}`, {
+        title: "Ton chrono tourne toujours",
+        body: `${Math.floor(min / 60)} h ${String(min % 60).padStart(2, "0")} : arrête-le et corrige la durée si besoin.`,
+        url: `/planner/${it.session_id}/focus`,
+        tag: "focus-long",
+      });
+    }
+  }
   const stale = (data ?? []).some((l) => {
     const sess = (l.item as unknown as { session: { end_at: string; notes: string | null } }).session;
     const started = new Date(l.started_at);
@@ -239,4 +259,35 @@ export async function closeStaleFocus(db: SupabaseClient, ctx: UserContext, now 
   if (!stale) return { stopped: 0 };
   const r = await stopAnyFocus(db, ctx, now);
   return { stopped: 1, minutes: r.minutes };
+}
+
+/**
+ * Corrige la durée du dernier chrono d'un élément (« j'ai oublié de l'arrêter ») :
+ * raccourcit le journal et ajuste le temps fait de l'élément (et la fin d'une session Focus libre).
+ */
+export async function correctLastFocus(db: SupabaseClient, ctx: UserContext, itemId: string, minutes: number) {
+  const m = Math.round(minutes);
+  if (!(m >= 0 && m <= 600)) throw new Error("Durée entre 0 et 600 minutes");
+  const { data: log } = await db
+    .from("focus_logs")
+    .select("id, started_at, ended_at, item:session_items!inner(id, actual_minutes, session:study_sessions!inner(id, notes, start_at))")
+    .eq("user_id", ctx.userId)
+    .eq("session_item_id", itemId)
+    .not("ended_at", "is", null)
+    .order("started_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (!log) return { ok: false };
+  const item = log.item as unknown as { id: string; actual_minutes: number | null; session: { id: string; notes: string | null; start_at: string } };
+  const old = Math.round((Date.parse(log.ended_at!) - Date.parse(log.started_at)) / 60_000);
+  const ended = new Date(Date.parse(log.started_at) + m * 60_000);
+  await db.from("focus_logs").update({ ended_at: ended.toISOString() }).eq("id", log.id);
+  if (item.actual_minutes !== null) {
+    await db.from("session_items").update({ actual_minutes: Math.max(0, item.actual_minutes + m - old) }).eq("id", item.id);
+  }
+  if (item.session.notes === FREE_FOCUS_NOTE) {
+    const end = new Date(Math.max(ended.getTime(), Date.parse(item.session.start_at) + 5 * 60_000));
+    await db.from("study_sessions").update({ end_at: end.toISOString() }).eq("id", item.session.id);
+  }
+  return { ok: true, minutes: m };
 }

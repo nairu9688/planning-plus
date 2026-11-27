@@ -22,7 +22,20 @@ type TargetChoice = "auto" | "next_ds" | "next_kholle" | "none";
 
 const TYPE_LABEL: Record<ItemType, string> = { homework: "Devoir", revision: "Révision", prep_task: "Tâche DS / khôlle", sport: "Sport" };
 
-export function ItemsEditor({ sessionId, items, subjects, options }: { sessionId: string; items: SessionItem[]; subjects: Subject[]; options: ItemOptions }) {
+export function ItemsEditor({
+  sessionId,
+  items,
+  subjects,
+  options,
+  reviewed = false,
+}: {
+  sessionId: string;
+  items: SessionItem[];
+  subjects: Subject[];
+  options: ItemOptions;
+  /** Bilan fait : on corrige le temps réellement fait. */
+  reviewed?: boolean;
+}) {
   const subjectById = useMemo(() => new Map(subjects.map((s) => [s.id, s])), [subjects]);
   const visible = items.filter((i) => !i.removed_in_review);
   const key = visible.map((i) => i.id).join(",");
@@ -56,7 +69,7 @@ export function ItemsEditor({ sessionId, items, subjects, options }: { sessionId
   return (
     <div className="space-y-3">
       <section className="card card-pad">
-        <h2 className="section-title mb-3">Éléments prévus</h2>
+        <h2 className="section-title mb-3">{reviewed ? "Éléments" : "Éléments prévus"}</h2>
         {visible.length ? (
           <ul ref={listRef} className="divide-y divide-border" onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}>
             {order.filter((id) => byId.has(id)).map((id) => {
@@ -73,6 +86,7 @@ export function ItemsEditor({ sessionId, items, subjects, options }: { sessionId
                     setDragId(i.id);
                   }}
                   canDrag={visible.length > 1}
+                  reviewed={reviewed}
                 />
               );
             })}
@@ -99,6 +113,7 @@ function ItemRow({
   dragging,
   onGrab,
   canDrag,
+  reviewed,
 }: {
   item: SessionItem;
   subject?: Subject;
@@ -106,9 +121,15 @@ function ItemRow({
   dragging: boolean;
   onGrab: (e: React.PointerEvent) => void;
   canDrag: boolean;
+  reviewed: boolean;
 }) {
   const [pending, start] = useTransition();
   const [minutes, setMinutes] = useState(item.planned_minutes);
+  const [real, setReal] = useState(item.actual_minutes ?? 0);
+  useEffect(() => setReal(item.actual_minutes ?? 0), [item.actual_minutes]);
+  // Temps fait modifiable dès qu'il existe (Focus libre, bilan fait) ; prévu seulement s'il a un sens.
+  const showReal = reviewed || item.origin === "ajoute_au_bilan" || item.actual_minutes !== null;
+  const showPlanned = item.origin !== "ajoute_au_bilan" || item.planned_minutes > 0;
   return (
     <li data-id={item.id} className={cn("flex flex-wrap items-center gap-2 py-2.5 bg-surface", pending && "opacity-60", dragging && "relative z-10 rounded-xl shadow-lg ring-1 ring-primary/40")}>
       {canDrag && (
@@ -127,7 +148,7 @@ function ItemRow({
         <p className="text-xs text-muted">
           {TYPE_LABEL[item.item_type]}
           {subject ? ` · ${subject.name}` : ""} · {targetText(item, options)}
-          {(item.actual_minutes ?? 0) > 0 && <span className="text-success font-medium"> · {item.actual_minutes} min faites</span>}
+
         </p>
       </div>
       <select
@@ -140,19 +161,39 @@ function ItemRow({
         <option value="next_kholle">Prochaine khôlle</option>
         <option value="none">Aucune cible</option>
       </select>
-      <div className="flex items-center gap-1">
-        <input
-          type="number"
-          min={0}
-          step={5}
-          className="input h-8 w-16 text-xs"
-          value={minutes}
-          onChange={(e) => setMinutes(Number(e.target.value))}
-          onBlur={() => minutes !== item.planned_minutes && start(() => updateSessionItem(item.id, { plannedMinutes: minutes }))}
-          aria-label="Durée prévue"
-        />
-        <span className="text-xs text-muted">min</span>
-      </div>
+      {showPlanned && (
+        <label className="flex items-center gap-1">
+          <span className="text-[11px] text-muted">prévu</span>
+          <input
+            type="number"
+            min={0}
+            step={5}
+            className="input h-8 w-16 text-xs"
+            value={minutes}
+            onChange={(e) => setMinutes(Number(e.target.value))}
+            onBlur={() => minutes !== item.planned_minutes && start(() => updateSessionItem(item.id, { plannedMinutes: minutes }))}
+            aria-label="Durée prévue (min)"
+          />
+        </label>
+      )}
+      {showReal && (
+        <label className="flex items-center gap-1">
+          <span className="text-[11px] text-success font-medium">fait</span>
+          <input
+            type="number"
+            min={0}
+            max={900}
+            step={5}
+            inputMode="numeric"
+            className="input h-8 w-16 text-xs border-success/50"
+            value={real}
+            onChange={(e) => setReal(Number(e.target.value))}
+            onBlur={() => real !== (item.actual_minutes ?? 0) && start(() => updateSessionItem(item.id, { actualMinutes: Math.max(0, Math.round(real)) }))}
+            aria-label="Temps réellement fait (min)"
+          />
+          <span className="text-xs text-muted">min</span>
+        </label>
+      )}
       <button className="btn btn-ghost h-8 w-8 p-0" onClick={() => start(() => deleteSessionItem(item.id))} aria-label="Retirer">
         <Trash2 className="size-4" />
       </button>

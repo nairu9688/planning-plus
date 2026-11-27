@@ -58,6 +58,10 @@ export default async function SessionPage({ params }: { params: Promise<{ id: st
   const slot = (new Date(session.end_at).getTime() - start.getTime()) / 60_000;
   const items = session.items.filter((i) => !i.removed_in_review);
   const planned = items.reduce((a, i) => a + i.planned_minutes, 0);
+  const real = items.reduce((a, i) => a + (i.actual_minutes ?? 0), 0);
+  // Session passée / Focus libre : on montre le temps réellement fait, pas le prévu.
+  const showReal = real > 0 || session.status === "bilan_fait";
+  const barValue = showReal ? real : planned;
   const isEvening = session.kind === "etude" || session.kind === "maison";
 
   return (
@@ -78,10 +82,10 @@ export default async function SessionPage({ params }: { params: Promise<{ id: st
         </div>
         <div className="flex items-center gap-2 text-xs text-muted">
           <div className="h-2 flex-1 rounded-full bg-surface-2 overflow-hidden">
-            <div className={cn("h-full rounded-full", planned > slot ? "bg-warning" : "bg-primary")} style={{ width: `${Math.min(100, (planned / slot) * 100)}%` }} />
+            <div className={cn("h-full rounded-full", showReal ? "bg-success" : planned > slot ? "bg-warning" : "bg-primary")} style={{ width: `${Math.min(100, (barValue / slot) * 100)}%` }} />
           </div>
-          <span className={cn(planned > slot && "text-warning font-medium")}>
-            {formatMinutes(planned)} prévus / {formatMinutes(slot)}
+          <span className={cn(!showReal && planned > slot && "text-warning font-medium")}>
+            {showReal ? `${formatMinutes(real)} faites${planned ? ` · ${formatMinutes(planned)} prévues` : ""}` : `${formatMinutes(planned)} prévues`} / {formatMinutes(slot)}
           </span>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -110,7 +114,7 @@ export default async function SessionPage({ params }: { params: Promise<{ id: st
         {session.notes && <p className="text-sm whitespace-pre-line">{session.notes}</p>}
       </header>
 
-      <ItemsEditor sessionId={session.id} items={session.items} subjects={ctx.subjects} options={options} />
+      <ItemsEditor sessionId={session.id} items={session.items} subjects={ctx.subjects} options={options} reviewed={session.status === "bilan_fait"} />
     </div>
   );
 }

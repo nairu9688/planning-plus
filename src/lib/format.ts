@@ -19,6 +19,7 @@ export const formatMonthYear = (d: string | Date) => capitalize(monthYear.format
 export const keyToDate = (key: string) => new Date(`${key}T12:00:00Z`);
 
 export function formatMinutes(m: number): string {
+  m = Math.round(m);
   if (m <= 0) return "0 min";
   const h = Math.floor(m / 60);
   const r = m % 60;

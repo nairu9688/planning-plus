@@ -13,12 +13,13 @@ describe("pickHostSession — un Focus libre s'ajoute à la session du soir", ()
   it("même si son bilan est déjà fait", () => {
     expect(pickHostSession([{ ...etude, status: "bilan_fait" }], now("21:10"))).toBe("etude");
   });
-  it("peu avant le début (30 min) ou après la fin (1 h 30) : toujours la session du soir", () => {
+  it("avant le début (jusqu'à 3 h) ou après la fin (1 h 30) : toujours la session du soir", () => {
     expect(pickHostSession([etude], now("19:35"))).toBe("etude");
+    expect(pickHostSession([etude], now("18:23"))).toBe("etude");
     expect(pickHostSession([etude], now("23:15"))).toBe("etude");
   });
   it("trop loin de toute session : aucune (on en créera une)", () => {
-    expect(pickHostSession([etude], now("15:00"))).toBeNull();
+    expect(pickHostSession([etude], now("16:30"))).toBeNull();
   });
   it("ignore sport, suggestions et sessions ignorées", () => {
     expect(pickHostSession([s("sp", etude.start, etude.end, "sport")], now("20:30"))).toBeNull();

@@ -1,7 +1,8 @@
 /**
  * Focus libre : à quelle session rattacher le travail ? Le Focus libre ne crée pas une session
  * de plus quand il y en a déjà une ce soir : il ajoute une matière à la session en cours,
- * ou à la plus proche (30 min avant son début → 1 h 30 après sa fin), même si son bilan est fait.
+ * ou à la plus proche (3 h avant son début → 1 h 30 après sa fin), même si son bilan est fait.
+ * Ex. : travail commencé à 18h20, étude à 20h → compté dans l'étude du soir.
  */
 export interface HostCandidate {
   id: string;
@@ -13,7 +14,9 @@ export interface HostCandidate {
   free: boolean;
 }
 
-const BEFORE_MS = 30 * 60_000;
+const BEFORE_MS = 3 * 3600_000;
+/** Une session « Focus libre » sert d'hôte à partir de 30 min avant son début. */
+const FREE_BEFORE_MS = 30 * 60_000;
 const AFTER_MS = 90 * 60_000;
 /** Une session « Focus libre » récente est réutilisée pendant 3 h. */
 const FREE_REUSE_MS = 3 * 3600_000;
@@ -33,7 +36,7 @@ export function pickHostSession(sessions: HostCandidate[], now: Date): string | 
     // À distance égale (ex. entre deux sessions), la session en cours gagne ; sinon la plus proche.
     return real[0].id;
   }
-  const free = usable.filter((s) => s.free && t - Date.parse(s.end) <= FREE_REUSE_MS && Date.parse(s.start) - BEFORE_MS <= t).sort((x, y) => dist(x) - dist(y));
+  const free = usable.filter((s) => s.free && t - Date.parse(s.end) <= FREE_REUSE_MS && Date.parse(s.start) - FREE_BEFORE_MS <= t).sort((x, y) => dist(x) - dist(y));
   return free[0]?.id ?? null;
 }
 

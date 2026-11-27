@@ -5,7 +5,7 @@ import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Play, Plus, Square, Timer } from "lucide-react";
-import { focusHostAction, logWorkAction, startFreeFocusAction, stopFocusAction } from "@/app/actions/focus";
+import { correctFocusAction, focusHostAction, logWorkAction, startFreeFocusAction, stopFocusAction } from "@/app/actions/focus";
 import { cn, formatMinutes } from "@/lib/format";
 import type { Subject } from "@/lib/types";
 import type { FocusStatus } from "@/lib/focus";
@@ -98,29 +98,88 @@ function clock(sec: number) {
   return `${h ? `${h}:` : ""}${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
+export interface StoppedFocus {
+  minutes: number;
+  label: string | null;
+  itemId: string | null;
+  sessionId: string | null;
+}
+
+/** Annonce un chrono arrêté (depuis n'importe quel bouton Stop) : la pastille affiche « Corriger ». */
+export function announceStopped(r: StoppedFocus) {
+  window.dispatchEvent(new CustomEvent("pp:focus-stopped", { detail: r }));
+}
+
+/** Confirmation après l'arrêt, avec correction de la durée (« j'ai oublié de l'arrêter »). */
+function StoppedToast({ r, onClose }: { r: StoppedFocus; onClose: () => void }) {
+  const router = useRouter();
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(r.minutes);
+  const [pending, start] = useTransition();
+  const [minutes, setMinutes] = useState(r.minutes);
+  const long = minutes >= 90;
+  useEffect(() => {
+    if (editing) return;
+    const t = setTimeout(onClose, long ? 15000 : 8000);
+    return () => clearTimeout(t);
+  }, [editing, long, onClose]);
+  return (
+    <div className="pp-pop fixed z-40 left-1/2 -translate-x-1/2 bottom-[calc(76px+env(safe-area-inset-bottom))] md:bottom-6 w-[min(92vw,420px)] rounded-2xl bg-success text-white px-4 py-2.5 text-sm shadow-lg">
+      {editing ? (
+        <form
+          className="flex items-center gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!r.itemId) return;
+            start(async () => {
+              await correctFocusAction(r.itemId!, value);
+              setMinutes(value);
+              setEditing(false);
+              router.refresh();
+            });
+          }}
+        >
+          <span className="flex-1">Temps réel</span>
+          <input type="number" min={0} max={600} inputMode="numeric" autoFocus value={value} onChange={(e) => setValue(Number(e.target.value))} className="w-20 h-8 rounded-lg px-2 text-[#121a2c]" aria-label="Minutes réellement faites" />
+          <span>min</span>
+          <button className="h-8 rounded-lg bg-white text-success font-semibold px-3" disabled={pending} aria-busy={pending}>OK</button>
+        </form>
+      ) : (
+        <div className="flex items-center gap-2">
+          <span className="flex-1 min-w-0">
+            ✓ {formatMinutes(minutes)}
+            {r.label ? ` de ${r.label}` : ""} ajoutées{long ? " · tu as oublié de l'arrêter ?" : ""}
+          </span>
+          {r.itemId && (
+            <button className="shrink-0 h-8 rounded-lg bg-white/20 hover:bg-white/30 font-semibold px-3" onClick={() => setEditing(true)}>
+              Corriger
+            </button>
+          )}
+          <button className="shrink-0 opacity-80" onClick={onClose} aria-label="Fermer">✕</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** Pastille du chrono en cours, visible sur toutes les pages, avec arrêt en un geste. */
 export function FocusPill({ status }: { status: FocusStatus }) {
   const router = useRouter();
   const [now, setNow] = useState(() => Date.now());
   const [pending, start] = useTransition();
-  const [done, setDone] = useState<string | null>(null);
+  const [done, setDone] = useState<StoppedFocus | null>(null);
   useEffect(() => {
     if (!status.running) return;
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
   }, [status.running]);
   useEffect(() => {
-    if (!done) return;
-    const t = setTimeout(() => setDone(null), 3500);
-    return () => clearTimeout(t);
-  }, [done]);
+    const on = (e: Event) => setDone((e as CustomEvent<StoppedFocus>).detail);
+    window.addEventListener("pp:focus-stopped", on);
+    return () => window.removeEventListener("pp:focus-stopped", on);
+  }, []);
 
-  if (done)
-    return (
-      <div className="pp-pop fixed z-40 left-1/2 -translate-x-1/2 bottom-[calc(76px+env(safe-area-inset-bottom))] md:bottom-6 rounded-full bg-success text-white px-4 py-2 text-sm font-medium shadow-lg">
-        ✓ {done}
-      </div>
-    );
+  if (done) return <StoppedToast key={`${done.itemId}-${done.minutes}`} r={done} onClose={() => setDone(null)} />;
   if (!status.running || !status.startedAt) return null;
   const sec = Math.max(0, Math.floor((now - Date.parse(status.startedAt)) / 1000));
   return (
@@ -139,7 +198,7 @@ export function FocusPill({ status }: { status: FocusStatus }) {
           onClick={() =>
             start(async () => {
               const r = await stopFocusAction();
-              setDone(`${formatMinutes(r.minutes)}${r.label ? ` de ${r.label}` : ""} ajoutées`);
+              if (r.stopped) setDone({ minutes: r.minutes, label: r.label, itemId: r.itemId, sessionId: r.sessionId });
               router.refresh();
             })
           }

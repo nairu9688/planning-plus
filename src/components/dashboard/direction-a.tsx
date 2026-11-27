@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowLeftRight, ClipboardCheck, MoonStar, Play, Plus, Square } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { stopFocusAction } from "@/app/actions/focus";
+import { announceStopped } from "@/components/focus/free-focus";
 import { setSessionMode } from "@/app/actions/sessions";
 import { setHomeworkStatus } from "@/app/actions/homework";
 import { planHomeworkSoon } from "@/app/actions/sessions";
@@ -74,7 +75,8 @@ function LiveFocus({ f, now }: { f: RunningFocus; now: number }) {
         aria-busy={pending}
         onClick={() =>
           start(async () => {
-            await stopFocusAction();
+            const r = await stopFocusAction();
+            if (r.stopped) announceStopped({ minutes: r.minutes, label: r.label, itemId: r.itemId, sessionId: r.sessionId });
             router.refresh();
           })
         }
