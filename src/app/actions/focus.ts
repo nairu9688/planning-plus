@@ -3,8 +3,8 @@
 import { after } from "next/server";
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/data/auth";
-import { correctLastFocus, getFocusStatus, hostSession, logWork, startFreeFocus, stopAnyFocus } from "@/lib/focus";
-import { timeKey } from "@/lib/domain/time";
+import { correctLastFocus, getFocusStatus, hostSession, logWork, setWorkRange, startFreeFocus, stopAnyFocus } from "@/lib/focus";
+import { addDays, parisDateTime, timeKey } from "@/lib/domain/time";
 import { pushSessionsNow } from "@/lib/sync/push-one";
 
 function refresh(userId: string) {
@@ -59,4 +59,25 @@ export async function focusHostAction(): Promise<{ id: string; label: string } |
   if (!data) return null;
   const label = `${KIND[data.kind] ?? "Session"} ${timeKey(data.start_at).replace(":", "h")}–${timeKey(data.end_at).replace(":", "h")}${data.status === "bilan_fait" ? " (bilan fait)" : ""}`;
   return { id, label };
+}
+
+/**
+ * Horaires réels d'un élément (« de 18h23 à 19h03 ») : il est rangé dans l'étude s'il y tombe
+ * majoritairement, sinon dans une session « Focus libre ». Erreurs renvoyées (pas levées :
+ * elles seraient masquées en production).
+ */
+export async function setWorkRangeAction(itemId: string, date: string, start: string, end: string) {
+  const { supabase, ctx, user } = await requireUser();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(start) || !/^\d{2}:\d{2}$/.test(end)) return { ok: false as const, error: "Horaires invalides" };
+  const a = parisDateTime(date, start);
+  const b = parisDateTime(end <= start ? addDays(date, 1) : date, end);
+  try {
+    const r = await setWorkRange(supabase, ctx, itemId, a, b);
+    refresh(user.id);
+    const { data } = await supabase.from("study_sessions").select("kind, notes, start_at, end_at").eq("id", r.sessionId).single();
+    const where = data ? `${data.notes === "Focus libre" ? "session libre" : (KIND[data.kind] ?? "session").toLowerCase()} ${timeKey(data.start_at).replace(":", "h")}–${timeKey(data.end_at).replace(":", "h")}` : "session";
+    return { ok: true as const, ...r, where };
+  } catch (e) {
+    return { ok: false as const, error: e instanceof Error ? e.message : "Erreur" };
+  }
 }

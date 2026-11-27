@@ -55,6 +55,20 @@ export default async function SessionPage({ params }: { params: Promise<{ id: st
     targetLabels: Object.fromEntries(examLabel),
   };
 
+  // Horaires réels de chaque élément (chronos terminés) : modifiables « de … à … ».
+  const itemIds = session.items.map((i) => i.id);
+  const { data: logs } = itemIds.length
+    ? await supabase.from("focus_logs").select("session_item_id, started_at, ended_at").in("session_item_id", itemIds).not("ended_at", "is", null)
+    : { data: [] };
+  const ranges: Record<string, { start: string; end: string }> = {};
+  for (const l of logs ?? []) {
+    const r = ranges[l.session_item_id];
+    ranges[l.session_item_id] = {
+      start: !r || l.started_at < r.start ? l.started_at : r.start,
+      end: !r || l.ended_at! > r.end ? l.ended_at! : r.end,
+    };
+  }
+
   const slot = (new Date(session.end_at).getTime() - start.getTime()) / 60_000;
   const items = session.items.filter((i) => !i.removed_in_review);
   const planned = items.reduce((a, i) => a + i.planned_minutes, 0);
@@ -114,7 +128,7 @@ export default async function SessionPage({ params }: { params: Promise<{ id: st
         {session.notes && <p className="text-sm whitespace-pre-line">{session.notes}</p>}
       </header>
 
-      <ItemsEditor sessionId={session.id} items={session.items} subjects={ctx.subjects} options={options} reviewed={session.status === "bilan_fait"} />
+      <ItemsEditor sessionId={session.id} items={session.items} subjects={ctx.subjects} options={options} reviewed={session.status === "bilan_fait"} ranges={ranges} sessionDate={session.date} sessionStart={session.start_at} />
     </div>
   );
 }

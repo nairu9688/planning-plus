@@ -5,7 +5,7 @@ import { loadUpcomingExams } from "@/lib/data/exams";
 import { ensureReview } from "@/lib/data/review";
 import { resolveTarget } from "@/lib/domain/targets";
 import { dateKey } from "@/lib/domain/time";
-import { capFocusMinutes, pickHostSession } from "@/lib/domain/focus-host";
+import { capFocusMinutes, hostForRange, pickHostSession } from "@/lib/domain/focus-host";
 import { sendOnce } from "@/lib/push";
 import type { SubjectKey } from "@/lib/domain/subjects";
 
@@ -290,4 +290,65 @@ export async function correctLastFocus(db: SupabaseClient, ctx: UserContext, ite
     await db.from("study_sessions").update({ end_at: end.toISOString() }).eq("id", item.session.id);
   }
   return { ok: true, minutes: m };
+}
+
+/** Recalcule les horaires d'une session « Focus libre » d'après ses chronos ; la retire si elle est vide. */
+async function refitFreeSession(db: SupabaseClient, ctx: UserContext, sessionId: string) {
+  const { data: items } = await db.from("session_items").select("id").eq("session_id", sessionId);
+  const ids = (items ?? []).map((i) => i.id);
+  if (!ids.length) {
+    await db.from("study_sessions").update({ status: "ignoree" }).eq("id", sessionId);
+    return;
+  }
+  const { data: logs } = await db.from("focus_logs").select("started_at, ended_at").in("session_item_id", ids).not("ended_at", "is", null);
+  if (!logs?.length) return;
+  const start = new Date(Math.min(...logs.map((l) => Date.parse(l.started_at))));
+  const end = new Date(Math.max(...logs.map((l) => Date.parse(l.ended_at!))));
+  await closeFreeSession(db, ctx, sessionId, start, end);
+}
+
+/**
+ * « J'ai travaillé de 18h23 à 19h03 » : fixe les horaires réels d'un élément (un seul bloc),
+ * son temps fait, et le range dans la bonne session : la session de travail qui contient
+ * l'essentiel du créneau, sinon une session « Focus libre » à ces horaires (bilan automatique).
+ */
+export async function setWorkRange(db: SupabaseClient, ctx: UserContext, itemId: string, start: Date, end: Date) {
+  const minutes = Math.round((end.getTime() - start.getTime()) / 60_000);
+  if (!(minutes >= 1 && minutes <= 600)) throw new Error("Créneau entre 1 min et 10 h");
+  const { data: item } = await db
+    .from("session_items")
+    .select("id, session_id, session:study_sessions!inner(id, notes)")
+    .eq("id", itemId)
+    .eq("user_id", ctx.userId)
+    .single();
+  if (!item) throw new Error("Élément introuvable");
+  const current = item.session as unknown as { id: string; notes: string | null };
+  const { data: open } = await db.from("focus_logs").select("id").eq("session_item_id", itemId).is("ended_at", null).limit(1);
+  if (open?.length) throw new Error("Arrête d'abord le chrono en cours");
+
+  // Un seul bloc : les anciens chronos de l'élément sont remplacés.
+  await db.from("focus_logs").delete().eq("session_item_id", itemId);
+  await db.from("focus_logs").insert({ user_id: ctx.userId, session_item_id: itemId, started_at: start.toISOString(), ended_at: end.toISOString() });
+  await db.from("session_items").update({ actual_minutes: minutes, done: true }).eq("id", itemId);
+
+  // Session d'accueil : session de travail qui couvre l'essentiel du créneau, sinon Focus libre.
+  const { data: around } = await db
+    .from("study_sessions")
+    .select("id, kind, status, start_at, end_at, notes")
+    .eq("user_id", ctx.userId)
+    .lt("start_at", end.toISOString())
+    .gt("end_at", start.toISOString());
+  const candidates = (around ?? []).map((x) => ({ id: x.id, kind: x.kind, status: x.status, start: x.start_at, end: x.end_at, free: x.notes === FREE_FOCUS_NOTE }));
+  const target: string =
+    hostForRange(candidates, start, end) ??
+    (current.notes === FREE_FOCUS_NOTE ? current.id : null) ??
+    candidates.find((c) => c.free && c.status !== "ignoree")?.id ??
+    (await createFreeSession(db, ctx, start, end));
+  if (target !== current.id) {
+    await db.from("session_items").update({ session_id: target }).eq("id", itemId);
+    if (current.notes === FREE_FOCUS_NOTE) await refitFreeSession(db, ctx, current.id);
+  }
+  const { data: t } = await db.from("study_sessions").select("notes").eq("id", target).single();
+  if (t?.notes === FREE_FOCUS_NOTE) await refitFreeSession(db, ctx, target);
+  return { sessionId: target, moved: target !== current.id, minutes };
 }

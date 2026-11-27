@@ -50,3 +50,20 @@ export function capFocusMinutes(start: Date, stop: Date, sessionEnd: Date | null
   const min = Math.round((end - start.getTime()) / 60_000);
   return Math.max(1, sessionEnd ? min : Math.min(min, CAP_NO_SESSION_MIN));
 }
+
+/**
+ * Créneau de travail saisi à la main (« de 18h23 à 19h03 ») : la session de travail qui en contient
+ * plus de la moitié, sinon null (le travail va dans une session « Focus libre » à ces horaires).
+ */
+export function hostForRange(sessions: HostCandidate[], start: Date, end: Date): string | null {
+  const a = start.getTime();
+  const b = end.getTime();
+  const len = Math.max(1, b - a);
+  let best: { id: string; overlap: number } | null = null;
+  for (const s of sessions) {
+    if (s.free || s.kind === "sport" || s.kind === "suggestion" || (s.status !== "prevue" && s.status !== "bilan_fait")) continue;
+    const overlap = Math.min(b, Date.parse(s.end)) - Math.max(a, Date.parse(s.start));
+    if (overlap > len / 2 && (!best || overlap > best.overlap)) best = { id: s.id, overlap };
+  }
+  return best?.id ?? null;
+}

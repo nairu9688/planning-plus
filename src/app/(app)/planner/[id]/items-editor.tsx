@@ -2,7 +2,11 @@
 import { friendlyError } from "@/lib/errors";
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { GripVertical, Plus, Trash2 } from "lucide-react";
+import { Clock, GripVertical, Plus, Trash2 } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { setWorkRangeAction } from "@/app/actions/focus";
+import { dateKey, timeKey } from "@/lib/domain/time";
 import { addSessionItem, deleteSessionItem, reorderSessionItems, updateSessionItem } from "@/app/actions/sessions";
 import { createHomework } from "@/app/actions/homework";
 import { createSubjectItem } from "@/app/actions/exams";
@@ -28,6 +32,9 @@ export function ItemsEditor({
   subjects,
   options,
   reviewed = false,
+  ranges = {},
+  sessionDate,
+  sessionStart,
 }: {
   sessionId: string;
   items: SessionItem[];
@@ -35,6 +42,10 @@ export function ItemsEditor({
   options: ItemOptions;
   /** Bilan fait : on corrige le temps réellement fait. */
   reviewed?: boolean;
+  /** Horaires réels (chronos) par élément. */
+  ranges?: Record<string, { start: string; end: string }>;
+  sessionDate?: string;
+  sessionStart?: string;
 }) {
   const subjectById = useMemo(() => new Map(subjects.map((s) => [s.id, s])), [subjects]);
   const visible = items.filter((i) => !i.removed_in_review);
@@ -45,6 +56,7 @@ export function ItemsEditor({
   const listRef = useRef<HTMLUListElement>(null);
   const [dragId, setDragId] = useState<string | null>(null);
   const [, startSave] = useTransition();
+  const [notice, setNotice] = useState<{ text: string; href: string } | null>(null);
 
   // Glisser-déposer à la poignée (souris et doigt) : l'élément suit le pointeur, l'ordre est enregistré au lâcher.
   const onMove = (e: React.PointerEvent) => {
@@ -70,6 +82,14 @@ export function ItemsEditor({
     <div className="space-y-3">
       <section className="card card-pad">
         <h2 className="section-title mb-3">{reviewed ? "Éléments" : "Éléments prévus"}</h2>
+        {notice && (
+          <p className="mb-3 rounded-xl bg-success/10 text-success text-sm px-3 py-2">
+            ✓ {notice.text} ·{" "}
+            <Link href={notice.href} className="underline font-medium">
+              voir
+            </Link>
+          </p>
+        )}
         {visible.length ? (
           <ul ref={listRef} className="divide-y divide-border" onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}>
             {order.filter((id) => byId.has(id)).map((id) => {
@@ -87,6 +107,10 @@ export function ItemsEditor({
                   }}
                   canDrag={visible.length > 1}
                   reviewed={reviewed}
+                  range={ranges[i.id] ?? null}
+                  sessionDate={sessionDate}
+                  sessionStart={sessionStart}
+                  onMoved={(text, href) => setNotice({ text, href })}
                 />
               );
             })}
@@ -114,6 +138,10 @@ function ItemRow({
   onGrab,
   canDrag,
   reviewed,
+  range,
+  sessionDate,
+  sessionStart,
+  onMoved,
 }: {
   item: SessionItem;
   subject?: Subject;
@@ -122,7 +150,12 @@ function ItemRow({
   onGrab: (e: React.PointerEvent) => void;
   canDrag: boolean;
   reviewed: boolean;
+  range: { start: string; end: string } | null;
+  sessionDate?: string;
+  sessionStart?: string;
+  onMoved: (text: string, href: string) => void;
 }) {
+  const [editRange, setEditRange] = useState(false);
   const [pending, start] = useTransition();
   const [minutes, setMinutes] = useState(item.planned_minutes);
   const [real, setReal] = useState(item.actual_minutes ?? 0);
@@ -194,9 +227,30 @@ function ItemRow({
           <span className="text-xs text-muted">min</span>
         </label>
       )}
+      {showReal && (
+        <button
+          className={cn("btn btn-ghost h-8 px-2 text-xs", editRange && "bg-surface-2")}
+          onClick={() => setEditRange((v) => !v)}
+          title="De quelle heure à quelle heure ?"
+          aria-expanded={editRange}
+        >
+          <Clock className="size-4" />
+          {range ? `${timeKey(range.start).replace(":", "h")}–${timeKey(range.end).replace(":", "h")}` : "horaires"}
+        </button>
+      )}
       <button className="btn btn-ghost h-8 w-8 p-0" onClick={() => start(() => deleteSessionItem(item.id))} aria-label="Retirer">
         <Trash2 className="size-4" />
       </button>
+      {editRange && (
+        <RangeEditor
+          itemId={item.id}
+          date={range ? dateKey(range.start) : (sessionDate ?? dateKey(new Date()))}
+          start={range ? timeKey(range.start) : sessionStart ? timeKey(sessionStart) : "20:00"}
+          end={range ? timeKey(range.end) : addMin(sessionStart ? timeKey(sessionStart) : "20:00", item.actual_minutes ?? 30)}
+          onClose={() => setEditRange(false)}
+          onMoved={onMoved}
+        />
+      )}
     </li>
   );
 }
@@ -357,6 +411,78 @@ export function AddItemForm({
         </button>
       </div>
       {error && <p className="text-sm text-danger">{error}</p>}
+    </form>
+  );
+}
+
+function addMin(t: string, m: number) {
+  const [h, mm] = t.split(":").map(Number);
+  const tot = (h * 60 + mm + m) % (24 * 60);
+  return `${String(Math.floor(tot / 60)).padStart(2, "0")}:${String(tot % 60).padStart(2, "0")}`;
+}
+
+/** « J'ai travaillé de … à … » : temps fait recalculé, élément rangé dans la bonne session. */
+function RangeEditor({
+  itemId,
+  date,
+  start: s0,
+  end: e0,
+  onClose,
+  onMoved,
+}: {
+  itemId: string;
+  date: string;
+  start: string;
+  end: string;
+  onClose: () => void;
+  onMoved: (text: string, href: string) => void;
+}) {
+  const router = useRouter();
+  const [d, setD] = useState(date);
+  const [a, setA] = useState(s0);
+  const [b, setB] = useState(e0);
+  const [err, setErr] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+  const mins = (() => {
+    const [h1, m1] = a.split(":").map(Number);
+    const [h2, m2] = b.split(":").map(Number);
+    let x = h2 * 60 + m2 - (h1 * 60 + m1);
+    if (x <= 0) x += 24 * 60;
+    return x;
+  })();
+  return (
+    <form
+      className="basis-full rounded-xl bg-surface-2 p-3 space-y-2"
+      onSubmit={(e) => {
+        e.preventDefault();
+        start(async () => {
+          const r = await setWorkRangeAction(itemId, d, a, b);
+          if (!r.ok) return setErr(r.error);
+          setErr(null);
+          if (r.moved) onMoved(`${mins} min déplacées dans la ${r.where}`, `/planner/${r.sessionId}`);
+          onClose();
+          router.refresh();
+        });
+      }}
+    >
+      <div className="flex flex-wrap items-end gap-2">
+        <label className="space-y-1">
+          <span className="label">Jour</span>
+          <input type="date" className="input h-9" value={d} onChange={(e) => setD(e.target.value)} />
+        </label>
+        <label className="space-y-1">
+          <span className="label">De</span>
+          <input type="time" className="input h-9 w-28" value={a} onChange={(e) => setA(e.target.value)} />
+        </label>
+        <label className="space-y-1">
+          <span className="label">À</span>
+          <input type="time" className="input h-9 w-28" value={b} onChange={(e) => setB(e.target.value)} />
+        </label>
+        <span className="text-sm text-muted pb-2">= {mins} min</span>
+        <button className="btn btn-primary h-9" disabled={pending} aria-busy={pending}>Enregistrer</button>
+      </div>
+      <p className="text-[11px] text-muted">Si ce créneau est surtout en dehors de cette session, l&apos;élément passe dans une session libre à ces horaires (et inversement).</p>
+      {err && <p className="text-sm text-danger">{err}</p>}
     </form>
   );
 }

@@ -53,3 +53,26 @@ describe("capFocusMinutes — un chrono oublié ne compte pas la nuit entière",
     expect(capFocusMinutes(new Date("2026-11-25T08:00:00Z"), new Date("2026-11-26T08:00:00Z"), null)).toBe(240);
   });
 });
+
+import { hostForRange } from "../focus-host";
+
+describe("hostForRange — un créneau de travail corrigé va dans la bonne session", () => {
+  const at = (hhmm: string) => new Date(`2026-11-27T${hhmm}:00+01:00`);
+  const etude27 = { id: "etude", kind: "etude", status: "prevue", start: "2026-11-27T19:00:00Z", end: "2026-11-27T20:50:00Z", free: false };
+  const libre = { id: "libre", kind: "libre", status: "bilan_fait", start: "2026-11-27T17:00:00Z", end: "2026-11-27T17:30:00Z", free: true };
+  it("18h23–19h03, étude 20h : hors de l'étude", () => {
+    expect(hostForRange([etude27], at("18:23"), at("19:03"))).toBeNull();
+  });
+  it("dans l'étude ou majoritairement dedans : l'étude", () => {
+    expect(hostForRange([etude27], at("20:10"), at("20:50"))).toBe("etude");
+    expect(hostForRange([etude27], at("19:40"), at("20:40"))).toBe("etude");
+  });
+  it("à moitié ou moins dedans : hors de l'étude", () => {
+    expect(hostForRange([etude27], at("19:30"), at("20:30"))).toBeNull();
+  });
+  it("ignore les sessions Focus libre, sport et ignorées", () => {
+    expect(hostForRange([libre], at("18:00"), at("18:20"))).toBeNull();
+    expect(hostForRange([{ ...etude27, kind: "sport" }], at("20:10"), at("20:50"))).toBeNull();
+    expect(hostForRange([{ ...etude27, status: "ignoree" }], at("20:10"), at("20:50"))).toBeNull();
+  });
+});
